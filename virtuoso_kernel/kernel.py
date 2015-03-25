@@ -1,4 +1,10 @@
+"""
+Virtuoso kernel for Jupyter. 
+
+Heavily borrowed from : https://github.com/takluyver/bash_kernel
+"""
 from IPython.kernel.zmq.kernelbase import Kernel
+from IPython.display import HTML
 import pexpect
 from pexpect import replwrap, EOF
 
@@ -10,6 +16,7 @@ import signal
 __version__ = '0.1'
 
 VERSION_PAT = re.compile(r'version (\d+(\.\d+)+)')
+ERROR_TAGS = ['<p style="color:red;"><b>', '</b></p>']
 
 from .images import (
     extract_image_filenames, display_data_for_image, image_setup_cmd
@@ -41,6 +48,7 @@ class VirtuosoKernel(Kernel):
     def __init__(self, **kwargs):
         Kernel.__init__(self, **kwargs)
         self._start_virtuoso()
+        self.re_error_prg = re.compile('\*Error\*')
 
     def _start_virtuoso(self):
         # Signal handlers are inherited by forked processes, and we can't easily
@@ -51,7 +59,7 @@ class VirtuosoKernel(Kernel):
         try:
             # Lookup 'setPrompts' for setting SKILL prompt.
             self.virtuoso_child = pexpect.spawn('tcsh -c "virtuoso -nograph"', echo=False)
-            self.virtuosowrapper = replwrap.REPLWrapper(self.virtuoso_child, '> ', None)
+            self.virtuosowrapper = replwrap.REPLWrapper(self.virtuoso_child, '\r\n> ', None)
         finally:
             signal.signal(signal.SIGINT, sig)
 
@@ -73,12 +81,23 @@ class VirtuosoKernel(Kernel):
             output = self.virtuosowrapper.child.before + 'Restarting Virtuoso'
             self._start_virtuoso()
 
+        if interrupted:
+            return {'status': 'abort', 'execution_count': self.execution_count}
+
+        exitcode = 0
+        exitmsg = ''
+        try:
+            _mres = self.re_error_prg.search(output)
+            if _mres is not None:
+                exitcode = 2
+                exitmsg = 'Error'
+
+        except Exception:
+            exitcode = 1
+            exitmsg = 'Unknown Exception'
+
         if not silent:
             image_filenames, output = extract_image_filenames(output)
-
-            # Send standard output
-            stream_content = {'name': 'stdout', 'text': output}
-            self.send_response(self.iopub_socket, 'stream', stream_content)
 
             # Send images, if any
             for filename in image_filenames:
@@ -89,22 +108,39 @@ class VirtuosoKernel(Kernel):
                     self.send_response(self.iopub_socket, 'stream', message)
                 else:
                     self.send_response(self.iopub_socket, 'display_data', data)
-
-        if interrupted:
-            return {'status': 'abort', 'execution_count': self.execution_count}
-
-        try:
-            #exitcode = int(self.virtuosowrapper.run_command('echo $?').rstrip())
-            # Pattern match for error? For now, ignore error messages
-            exitcode = 0
-
-        except Exception:
-            exitcode = 1
-
         if exitcode:
+            # Send formatted output
+            _out = HTML(ERROR_TAGS[0] + 'Traceback:' + ERROR_TAGS[1])
+            err_content = {
+                    'source' : 'kernel',
+                    'data' : {
+                        'text/html' : _out.data,
+                        'text/plain' : 'Traceback:'
+                        },
+                    'metadata' : {}}
+            self.send_response(self.iopub_socket, 'display_data', err_content)
+            err_content = {
+                    'ename': str(exitmsg), 
+                    'evalue': str(exitcode), 
+                    'traceback': [output]
+                    }
+            self.send_response(self.iopub_socket, 'error', err_content)
+
             return {'status': 'error', 'execution_count': self.execution_count,
-                    'ename': '', 'evalue': str(exitcode), 'traceback': []}
+                    'ename': str(exitmsg), 'evalue': str(exitcode), 'traceback': []}
         else:
+            # Send standard output
+            #stream_content = {'name': 'stdout', 'text': output}
+            #self.send_response(self.iopub_socket, 'stream', stream_content)
+
+            # Use execution results
+            execute_content = {
+                    'execution_count' : self.execution_count,
+                    'data' : {'text/plain' : output},
+                    'metadata' : {}
+                    }
+            self.send_response(self.iopub_socket, 'execute_result', execute_content)
+
             return {'status': 'ok', 'execution_count': self.execution_count,
                     'payload': [], 'user_expressions': {}}
 
@@ -139,4 +175,9 @@ class VirtuosoKernel(Kernel):
                 'cursor_end': cursor_pos, 'metadata': dict(),
                 'status': 'ok'}
 
-
+    def do_shutdown(self, restart):
+        try:
+            self.virtuosowrapper.run_command('exit').rstrip()
+        except EOF:
+            self.virtuosowrapper.child.close()
+        return {'restart' : False}
