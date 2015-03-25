@@ -70,8 +70,20 @@ class VirtuosoKernel(Kernel):
                     'payload': [], 'user_expressions': {}}
 
         interrupted = False
+        ## Preprocess the code to make a list of single-line instructions,
+        ## because, I want the output from each line to be shown
+        ## and also because, the Ocean shell expects one command per line
+        ##code_lines = [line for line in code.splitlines() if line.strip() != '']
+        ##code_processed = '\r\n'.join(code_lines)
+
+        code_processed = '{\r\n' + code + '\r\n}'
+        #code_processed = code
         try:
-            output = self.virtuosowrapper.run_command(code.rstrip(), timeout=None)
+            #output_list = [self.virtuosowrapper.run_command(_cline.rstrip(), timeout=None) for _cline in code_lines]
+            #output = '\r\n'.join(output_list)
+            self.virtuosowrapper.child.sendline(code_processed)
+            self.virtuosowrapper.child.expect('\r\n> $')
+            output = self.virtuosowrapper.child.before
         except KeyboardInterrupt:
             self.virtuosowrapper.child.sendintr()
             interrupted = True
