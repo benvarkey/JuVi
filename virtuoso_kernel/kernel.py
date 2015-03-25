@@ -11,6 +11,11 @@ __version__ = '0.1'
 
 VERSION_PAT = re.compile(r'version (\d+(\.\d+)+)')
 
+from .images import (
+    extract_image_filenames, display_data_for_image, image_setup_cmd
+)
+
+
 class VirtuosoKernel(Kernel):
     implementation = 'virtuoso_kernel'
     implementation_version = __version__
@@ -25,7 +30,7 @@ class VirtuosoKernel(Kernel):
     @property
     def banner(self):
         if self._banner is None:
-            self._banner = check_output(['tcsh -c virtuoso', '-V']).decode('utf-8')
+            self._banner = check_output(['/bin/tcsh', '-c "virtuoso -V"']).decode('utf-8')
         return self._banner
 
     language_info = {'name': 'SKILL',
@@ -45,8 +50,8 @@ class VirtuosoKernel(Kernel):
         sig = signal.signal(signal.SIGINT, signal.SIG_DFL)
         try:
             # Lookup 'setPrompts' for setting SKILL prompt.
-            self.virtuoso_child = pexpect.spawn("tcsh -c 'virtuoso -nograph'", echo=False)
-            self.virtuosowrapper = replwrap.REPLWrapper(self.virtuoso_child, "> ", None)
+            self.virtuoso_child = pexpect.spawn('tcsh -c "virtuoso -nograph"', echo=False)
+            self.virtuosowrapper = replwrap.REPLWrapper(self.virtuoso_child, '> ', None)
         finally:
             signal.signal(signal.SIGINT, sig)
 
@@ -68,7 +73,6 @@ class VirtuosoKernel(Kernel):
             output = self.virtuosowrapper.child.before + 'Restarting Virtuoso'
             self._start_virtuoso()
 
-        """
         if not silent:
             image_filenames, output = extract_image_filenames(output)
 
@@ -85,7 +89,7 @@ class VirtuosoKernel(Kernel):
                     self.send_response(self.iopub_socket, 'stream', message)
                 else:
                     self.send_response(self.iopub_socket, 'display_data', data)
-        """
+
         if interrupted:
             return {'status': 'abort', 'execution_count': self.execution_count}
 
