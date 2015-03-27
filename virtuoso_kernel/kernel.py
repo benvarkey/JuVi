@@ -45,7 +45,7 @@ class VirtuosoKernel(Kernel):
 
     def __init__(self, **kwargs):
         super(VirtuosoKernel, self).__init__(**kwargs)
-        self._shell = None
+        self._start_virtuoso()
 
     def _start_virtuoso(self):
         """
