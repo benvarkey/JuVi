@@ -65,7 +65,7 @@ class VirtuosoShell(object):
         self._start_virtuoso()
         self._version_re = re.compile(r'version (\d+(\.\d+)+)')
         self._error_re = re.compile(r'\("(.*?)"\s+(\d+)\s+t\s+'
-                                    'nil\s+\((.*?)\)\s*\)')
+                                    r'nil\s+\((.*?)\)\s*\)')
         self._output_re = re.compile(r'(^[\S\s]*?)(?=(?:\r\n)?nil$)')
 
     def _start_virtuoso(self):
@@ -78,7 +78,8 @@ class VirtuosoShell(object):
         # handler here # so that virtuoso and its children are interruptible.
         sig = signal.signal(signal.SIGINT, signal.SIG_DFL)
         try:
-            # TODO: Lookup 'setPrompts' for setting SKILL prompt.
+            # I could use 'setPrompts' for setting SKILL prompt, but,
+            # not relevant for Jupyter
             self._shell = pexpect.spawn('tcsh -c "virtuoso -nograph"',
                                         echo=False)
             self._shell.expect('\r\n> ')
@@ -149,6 +150,27 @@ class VirtuosoShell(object):
         self._parse_output()
 
         return self.output
+
+    def get_matches(self, token):
+        """
+        Return a list of functions and variables starting with *token*
+        """
+        _cmd = 'listFunctions("^%s")' % token
+        self._shell.sendline(_cmd)
+        self.wait_ready()
+        _output = self._shell.before
+        if _output[0] == '(':
+            _output = _output[1:-1]
+        _matches = _output.split()
+
+        _cmd = 'listVariables("^%s")' % token
+        self._shell.sendline(_cmd)
+        self.wait_ready()
+        _output = self._shell.before
+        if _output[0] == '(':
+            _output = _output[1:-1]
+        _matches.extend(_output.split())
+        return _matches
 
     def interrupt(self):
         """

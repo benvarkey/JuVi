@@ -121,38 +121,33 @@ class VirtuosoKernel(Kernel):
                     'user_expressions': {}}
 
     def do_complete(self, code, cursor_pos):
-        """
+        # Based on bash_kernel code
         code = code[:cursor_pos]
-        default = {'matches': [], 'cursor_start': 0,
-                   'cursor_end': cursor_pos, 'metadata': dict(),
+        default = {'matches': [],
+                   'cursor_start': 0,
+                   'cursor_end': cursor_pos,
+                   'metadata': dict(),
                    'status': 'ok'}
 
         if not code or code[-1] == ' ':
             return default
 
-        tokens = code.replace(';', ' ').split()
-        if not tokens:
+        _tokens = code.split()
+        if not _tokens:
             return default
 
-        token = tokens[-1]
-        start = cursor_pos - len(token)
-        cmd = 'listFunctions("^%s")' % token
-        output = self.virtuosowrapper.run_command(cmd).rstrip()
-        matches = output.split()
+        _token = _tokens[-1]
+        _matches = self._shell.get_matches(_token)
 
-        cmd = 'listVariables("^%s")' % token
-        output = self.virtuosowrapper.run_command(cmd).rstrip()
-        matches.extend(output.split())
-
-        if not matches:
+        if len(_matches) == 0:
             return default
-        matches = [m for m in matches if m.startswith(token)]
 
-        return {'matches': matches, 'cursor_start': start,
-                'cursor_end': cursor_pos, 'metadata': dict(),
+        start = cursor_pos - len(_token)
+        return {'matches': _matches,
+                'cursor_start': start,
+                'cursor_end': cursor_pos,
+                'metadata': dict(),
                 'status': 'ok'}
-        """
-        pass
 
     def do_shutdown(self, restart):
         """
