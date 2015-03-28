@@ -10,11 +10,11 @@ from pexpect import EOF
 
 __version__ = '0.1'
 
+
 class VirtuosoKernel(Kernel):
     implementation = 'virtuoso_kernel'
     implementation_version = __version__
     language = 'SKILL'
-    _ERROR_TAGS = ('<p style="color:red;"><i>', '</i></p>')
 
     @property
     def language_version(self):
@@ -29,7 +29,7 @@ class VirtuosoKernel(Kernel):
         Language info
         """
         return {'name': 'SKILL',
-                'version' : self.language_version,
+                'version': self.language_version,
                 'mimetype': 'text/x-scheme',
                 'file_extension': 'il',
                 'pygments_lexer': 'scheme',
@@ -42,6 +42,8 @@ class VirtuosoKernel(Kernel):
         """
         return self._shell.banner
 
+    _err_header = HTML('<span style="color:red; font-family:monospace">'
+                       'Traceback:</span>')
 
     def __init__(self, **kwargs):
         super(VirtuosoKernel, self).__init__(**kwargs)
@@ -52,18 +54,17 @@ class VirtuosoKernel(Kernel):
         Start the virtuoso shell
         """
         self._shell = VirtuosoShell()
-        self._shell.wait_ready()
 
     def do_execute(self, code, silent, store_history=True,
                    user_expressions=None, allow_stdin=False):
         """
         Execute the *code* block sent by the front-end.
         """
-        shell = self._shell
-        if not code.strip():
+        if code.strip() == '':
             return {'status': 'ok', 'execution_count': self.execution_count,
                     'payload': [], 'user_expressions': {}}
 
+        shell = self._shell
         output = None
         interrupted = False
         exec_error = None
@@ -73,47 +74,51 @@ class VirtuosoKernel(Kernel):
             shell.interrupt()
             interrupted = True
             shell.wait_ready()
-            output = shell.output()
+            output = shell.output
         except EOF:
-            output = shell.output() + '\r\nRestarting Virtuoso'
+            output = shell.output + '\r\nRestarting Virtuoso'
             self._start_virtuoso()
         except VirtuosoExceptions as vexcp:
             exec_error = vexcp.value
+            output = shell.output
 
         if interrupted:
             return {'status': 'abort', 'execution_count': self.execution_count}
 
-        if not silent:
-            if exec_error is not None:
-                _out = HTML(self._ERROR_TAGS[0] + 'Traceback:' + self._ERROR_TAGS[1])
-                html_content = {'source' : 'kernel', 'data' : {'text/html' :
-                                                               _out.data,
-                                                               'text/plain' :
-                                                               'Traceback:'},
-                                'metadata' : {}}
-                self.send_response(self.iopub_socket, 'display_data', html_content)
+        if (not silent) and (output != ''):
+            execute_content = {'execution_count': self.execution_count,
+                               'data': {'text/plain': output},
+                               'metadata': {}}
+            self.send_response(self.iopub_socket, 'execute_result',
+                               execute_content)
 
-                err_content = {'execution_count': self.execution_count,
-                               'ename': str(exec_error[0]),
-                               'evalue': str(exec_error[1]),
-                               'traceback': [exec_error[2]]}
-                self.send_response(self.iopub_socket, 'error', err_content)
+        if exec_error is not None:
+            html_content = {'source': 'kernel', 'data': {'text/html':
+                                                         self._err_header.data,
+                                                         'text/plain':
+                                                         'Traceback:'},
+                            'metadata': {}}
+            self.send_response(self.iopub_socket, 'display_data', html_content)
 
-                return {'status': 'error',
-                        'execution_count': self.execution_count,
-                        'ename': str(exec_error[0]),
-                        'evalue': str(exec_error[1]),
-                        'traceback': [exec_error[2]]}
-            else:
-                execute_content = {'execution_count' : self.execution_count,
-                                   'data' : {'text/plain' : output},
-                                   'metadata' : {}}
-                self.send_response(self.iopub_socket, 'execute_result', execute_content)
+            # TODO: Need to get a proper traceback like in ultraTB
+            # tb_content = ["", 0, "", exec_error[2]]
+            tb_content = [exec_error[2]]
+            err_content = {'execution_count': self.execution_count,
+                           'ename': str(exec_error[0]),
+                           'evalue': str(exec_error[1]),
+                           'traceback': tb_content}
+            self.send_response(self.iopub_socket, 'error', err_content)
 
-                return {'status': 'ok',
-                        'execution_count': self.execution_count,
-                        'payload': [],
-                        'user_expressions': {}}
+            return {'status': 'error',
+                    'execution_count': self.execution_count,
+                    'ename': str(exec_error[0]),
+                    'evalue': str(exec_error[1]),
+                    'traceback': tb_content}
+        else:
+            return {'status': 'ok',
+                    'execution_count': self.execution_count,
+                    'payload': [],
+                    'user_expressions': {}}
 
     def do_complete(self, code, cursor_pos):
         """
@@ -154,4 +159,4 @@ class VirtuosoKernel(Kernel):
         Shutdown the shell
         """
         self._shell.shutdown(restart)
-        return {'restart' : restart}
+        return {'restart': restart}
