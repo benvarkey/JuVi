@@ -34,12 +34,6 @@ class VirtuosoShell(object):
     _output = ""
     _exec_error = None  # None means no error in last execution
 
-    def _error_out(self, ename, evalue, tb):
-        """
-        Pretty-print error message
-        """
-        pass
-
     @property
     def banner(self):
         """
@@ -72,7 +66,7 @@ class VirtuosoShell(object):
         self._version_re = re.compile(r'version (\d+(\.\d+)+)')
         self._error_re = re.compile(r'\("(.*?)"\s+(\d+)\s+t\s+'
                                     'nil\s+\((.*?)\)\s*\)')
-        self._output_re = re.compile(r'([\S\r\n]*)(?:\r\n)*nil$')
+        self._output_re = re.compile(r'(^[\S\s]*?)(?=(?:\r\n)?nil$)')
 
     def _start_virtuoso(self):
         """
@@ -95,31 +89,34 @@ class VirtuosoShell(object):
         """
         Parse the virtuoso shell's output and handle error.
 
-        Virtuoso shell doesn't give a debug terminal, so we will
-        fake one using the front-end's raw_input, in case of error.
+        #TODO: Can I use the skill debugger somehow?
 
         In case of error, set status to a tuple of the form :
             (etype, evalue, tb)
         else, set to None
         """
         self._exec_error = None
-
-        # Fish for status info:
+        if self._output != 'nil':
+            # non-error results are returned in a list
+            self._output = self._output[1:-1]
 
         # The output can have a stream of text ending
         # with the following format if there is an error:
         # ("errorClass" errorNumber t nil ("Error Message"))
-        _parsed_output = self._error_re.search(self._output)
+        _parsed_output = self._error_re.search(self._error_output)
         self._exec_error = None
+        _printed_out = ''
         if _parsed_output is not None:
             self._exec_error = _parsed_output.groups()
             self._exec_error = (self._exec_error[0],
                                 int(self._exec_error[1]),
                                 self._exec_error[2])
-            self._output = self._output[:_parsed_output.start()]
+            _printed_out = self._error_output[:_parsed_output.start()]
         else:
-            _parse_output = self._output_re.search(self._output)
-            self._output = _parse_output.group(1)
+            _parsed_output = self._output_re.search(self._error_output)
+            _printed_out = _parsed_output.group(1)
+
+        self._output = _printed_out + '\r\n' + self._output
 
         # If the shell reported any errors, throw exception
         if self._exec_error is not None:
@@ -132,12 +129,22 @@ class VirtuosoShell(object):
         #TODO: use 'store_history' and 'silent' similar to IPython
         """
         # Intercept errors in execution using 'errset' function
-        _code_framed = '{errset({' + code + '}) errset.errset}'
+        _code_framed = '_exc_res=errset({' + code + '}) errset.errset'
 
         self._shell.sendline(_code_framed)
         self.wait_ready()
+        # if successful, return is 'nil',
+        # else, return is a list with error message
+        # printed messages can precede the error message
+        self._error_output = self._shell.before
 
+        # get the result of execution
+        self._shell.sendline('_exc_res')
+        self.wait_ready()
+        # if successful, return is a list
+        # else, return is 'nil'
         self._output = self._shell.before
+
         # Check the output and throw exception in case of error
         self._parse_output()
 
