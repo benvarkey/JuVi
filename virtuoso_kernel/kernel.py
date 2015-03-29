@@ -7,6 +7,7 @@ from IPython.kernel.zmq.kernelbase import Kernel
 from IPython.display import HTML
 from .shell import VirtuosoShell, VirtuosoExceptions
 from pexpect import EOF
+import colorama
 
 __version__ = '0.1'
 
@@ -48,6 +49,7 @@ class VirtuosoKernel(Kernel):
     def __init__(self, **kwargs):
         super(VirtuosoKernel, self).__init__(**kwargs)
         self._start_virtuoso()
+        colorama.init()
 
     def _start_virtuoso(self):
         """
@@ -149,6 +151,29 @@ class VirtuosoKernel(Kernel):
                 'metadata': dict(),
                 'status': 'ok'}
 
+    def _pretty_introspection(self, info, keyword):
+        import re
+        # Optional keywords
+        info = re.sub(r'(\?\w+)', r'%s\1%s' % (colorama.Fore.YELLOW,
+                                               colorama.Fore.RESET), info,
+                      count=0)
+        # Required arguments
+        info = re.sub(r'(\s*)(%s\()(\s*)([\w\s]+)([\s\S]+)' % keyword,
+                      r'\1\2\3%s\4%s\5' % (colorama.Fore.GREEN,
+                                           colorama.Fore.RESET), info)
+        # Function name keyword
+        # info = re.sub(r'(%s)(\()' % keyword,
+        #               r'%s\1%s\2' % (colorama.Fore.BLUE +
+        #                              colorama.Style.BRIGHT,
+        #                              colorama.Fore.RESET +
+        #                              colorama.Style.NORMAL),
+        #               info, count=0)
+        info = re.sub(r'(%s)(\()' % keyword,
+                      r'%s\1%s\2' % (colorama.Fore.BLUE,
+                                     colorama.Fore.RESET),
+                      info, count=0)
+        return info
+
     def _html_introspection(self, info, keyword):
         import re
         info = re.sub(r'(\?\w+)', r'<i>\1</i>', info, count=0)
@@ -180,9 +205,10 @@ class VirtuosoKernel(Kernel):
 
         # 'text/html': HTML().data
         _html_info = self._html_introspection(_info, _token)
+        _tt_info = self._pretty_introspection(_info, _token)
         return {'status': 'ok',
                 'data': {'text/html': _html_info.data,
-                         'text/plain': _info},
+                         'text/plain': _tt_info},
                 'metadata': dict(),
                 'found': True}
 
