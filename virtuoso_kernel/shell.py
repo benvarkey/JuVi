@@ -158,19 +158,35 @@ class VirtuosoShell(object):
         _cmd = 'listFunctions("^%s")' % token
         self._shell.sendline(_cmd)
         self.wait_ready()
+        _matches = []
         _output = self._shell.before
-        if _output[0] == '(':
-            _output = _output[1:-1]
-        _matches = _output.split()
+        if (_output) != 'nil':
+            if _output[0] == '(':
+                _output = _output[1:-1]
+            _matches = _output.split()
 
         _cmd = 'listVariables("^%s")' % token
         self._shell.sendline(_cmd)
         self.wait_ready()
         _output = self._shell.before
-        if _output[0] == '(':
-            _output = _output[1:-1]
-        _matches.extend(_output.split())
+        if (_output) != 'nil':
+            if _output[0] == '(':
+                _output = _output[1:-1]
+            _matches.extend(_output.split())
         return _matches
+
+    def get_info(self, token):
+        """
+        Returns info on the requested object
+
+        # TODO: get info on variables also
+        """
+        _cmd = 'help(%s)' % token
+        self._shell.sendline(_cmd)
+        self.wait_ready()
+        if (self._shell.before) != 'nil':
+            return self._shell.before
+        return ''
 
     def interrupt(self):
         """

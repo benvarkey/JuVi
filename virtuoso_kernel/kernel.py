@@ -149,6 +149,33 @@ class VirtuosoKernel(Kernel):
                 'metadata': dict(),
                 'status': 'ok'}
 
+    def do_inspect(self, code, cursor_pos, detail_level=0):
+        """
+        Object introspection
+        """
+        code = code[:cursor_pos]
+        default = {'status': 'ok',
+                   'data': dict(),
+                   'metadata': dict()}
+
+        if not code or code[-1] == ' ':
+            return default
+
+        _tokens = code.split()
+        if not _tokens:
+            return default
+
+        _token = _tokens[-1]
+        _info = self._shell.get_info(_token)
+
+        if len(_matches) == 0:
+            return default
+
+        # 'text/html': HTML().data
+        return {'status': 'ok',
+                'data': {'text/plain': _info},
+                'metadata': dict()}
+
     def do_shutdown(self, restart):
         """
         Shutdown the shell
