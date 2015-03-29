@@ -4,7 +4,7 @@ Virtuoso kernel for Jupyter.
 Inspired by https://github.com/takluyver/bash_kernel
 """
 from IPython.kernel.zmq.kernelbase import Kernel
-from IPython.display import HTML
+from IPython.display import HTML, Image
 from .shell import VirtuosoShell, VirtuosoExceptions
 from pexpect import EOF
 import colorama
@@ -70,6 +70,7 @@ class VirtuosoKernel(Kernel):
         output = None
         interrupted = False
         exec_error = None
+
         try:
             output = shell.run_cell(code)
         except KeyboardInterrupt:
@@ -83,6 +84,23 @@ class VirtuosoKernel(Kernel):
         except VirtuosoExceptions as vexcp:
             exec_error = vexcp.value
             output = shell.output
+
+        # Handle plots separately to display inline.
+        # If there is a 'plot(...)' command in the code,
+        # ask the shell to save a .png  hardcopy at the end
+        # and display the image inline.
+
+        # HACK: image created after doing 'plot' using
+        # saveGraphImage(?fileName "/tmp/rc.png" ?width 8 ?height 5 ?units
+        # "inch" ?resolution 96 ?resolutionUnits "pixels/in")
+        """
+        _image = Image(filename="/tmp/rc.png")
+        display_content = {'source': "kernel",
+                           'data': {'image/png': _image.data.encode('base64')},
+                           'metadata': {}}
+        self.send_response(self.iopub_socket, 'display_data',
+                           display_content)
+        """
 
         if interrupted:
             return {'status': 'abort', 'execution_count': self.execution_count}
@@ -161,13 +179,6 @@ class VirtuosoKernel(Kernel):
         info = re.sub(r'(\s*)(%s\()(\s*)([\w\s]+)([\s\S]+)' % keyword,
                       r'\1\2\3%s\4%s\5' % (colorama.Fore.GREEN,
                                            colorama.Fore.RESET), info)
-        # Function name keyword
-        # info = re.sub(r'(%s)(\()' % keyword,
-        #               r'%s\1%s\2' % (colorama.Fore.BLUE +
-        #                              colorama.Style.BRIGHT,
-        #                              colorama.Fore.RESET +
-        #                              colorama.Style.NORMAL),
-        #               info, count=0)
         info = re.sub(r'(%s)(\()' % keyword,
                       r'%s\1%s\2' % (colorama.Fore.BLUE,
                                      colorama.Fore.RESET),
