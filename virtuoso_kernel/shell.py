@@ -181,12 +181,15 @@ class VirtuosoShell(object):
 
         # TODO: get info on variables also
         """
+        # Make sure that only valid function/variable names are used
+        token = re.match(r'^(\w+)', token).group(1)
         _cmd = 'help(%s)' % token
         self._shell.sendline(_cmd)
         self.wait_ready()
-        if (self._shell.before) != 'nil':
-            return self._shell.before
-        return ''
+        _info = ''
+        if self._shell.before != 'nil':
+            _info = self._shell.before
+        return (_info, token)
 
     def interrupt(self):
         """

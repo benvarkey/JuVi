@@ -149,14 +149,21 @@ class VirtuosoKernel(Kernel):
                 'metadata': dict(),
                 'status': 'ok'}
 
+    def _html_introspection(self, info, keyword):
+        import re
+        info = re.sub(r'(\?\w+)', r'<i>\1</i>', info, count=0)
+        info = re.sub(r'(%s)' % keyword, r'<b>\1</b>', info, count=0)
+        return HTML(info)
+
     def do_inspect(self, code, cursor_pos, detail_level=0):
         """
         Object introspection
         """
         code = code[:cursor_pos]
         default = {'status': 'ok',
-                   'data': dict(),
-                   'metadata': dict()}
+                   'data': {},
+                   'metadata': dict(),
+                   'found': False}
 
         if not code or code[-1] == ' ':
             return default
@@ -166,15 +173,18 @@ class VirtuosoKernel(Kernel):
             return default
 
         _token = _tokens[-1]
-        _info = self._shell.get_info(_token)
+        _info, _token = self._shell.get_info(_token)
 
-        if len(_matches) == 0:
+        if len(_info) == 0:
             return default
 
         # 'text/html': HTML().data
+        _html_info = self._html_introspection(_info, _token)
         return {'status': 'ok',
-                'data': {'text/plain': _info},
-                'metadata': dict()}
+                'data': {'text/html': _html_info.data,
+                         'text/plain': _info},
+                'metadata': dict(),
+                'found': True}
 
     def do_shutdown(self, restart):
         """
