@@ -117,7 +117,9 @@ class VirtuosoShell(object):
             _parsed_output = self._output_re.search(self._error_output)
             _printed_out = _parsed_output.group(1)
 
-        self._output = _printed_out + '\r\n' + self._output
+            if(_printed_out != ''):
+                _printed_out = _printed_out + '\r\n'
+            self._output = _printed_out + self._output.rstrip()
 
         # If the shell reported any errors, throw exception
         if self._exec_error is not None:
