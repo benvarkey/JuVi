@@ -123,6 +123,15 @@ class VirtuosoShell(object):
         if self._exec_error is not None:
             raise VirtuosoExceptions(self._exec_error)
 
+    def run_raw(self, code):
+        """
+        Send the code as it is.
+
+        No error checking is done.
+        """
+        self._shell.sendline(code)
+        self.wait_ready()
+
     def run_cell(self, code):
         """
         Executes the 'code'
@@ -132,7 +141,7 @@ class VirtuosoShell(object):
         # Intercept errors in execution using 'errset' function
         _code_framed = '_exc_res=errset({' + code + '}) errset.errset'
 
-        self._shell.sendline(_code_framed)
+        self.run_raw(_code_framed)
         self.wait_ready()
         # if successful, return is 'nil',
         # else, return is a list with error message

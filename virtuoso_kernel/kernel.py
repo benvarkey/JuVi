@@ -8,6 +8,9 @@ from IPython.display import HTML, Image
 from .shell import VirtuosoShell, VirtuosoExceptions
 from pexpect import EOF
 import colorama
+import re
+import time
+import os
 
 __version__ = '0.1'
 
@@ -50,6 +53,14 @@ class VirtuosoKernel(Kernel):
         super(VirtuosoKernel, self).__init__(**kwargs)
         self._start_virtuoso()
         colorama.init()
+        self._plot_re = re.compile(r'[^\w]?plot\(')
+        self._plt_width = 8.0
+        self._plt_height = 5.0
+        self._plt_resolution = 96
+        self._plt_file_name = None
+
+        # Start a new window to handle plots
+        self._shell.run_raw("__win_id__ = awvCreatePlotWindow()")
 
     def _start_virtuoso(self):
         """
@@ -71,6 +82,16 @@ class VirtuosoKernel(Kernel):
         interrupted = False
         exec_error = None
 
+        # Handle plots separately to display inline.
+        # If there is a 'plot(...)' command in the code,
+        # ask the shell to save a .png  hardcopy at the end
+        # and display the image inline.
+        _plot_match = self._plot_re.search(code)
+
+        # If there is a plot request, clear the plot window first.
+        if(_plot_match is not None):
+            self._shell.run_raw("clearAll()")
+
         try:
             output = shell.run_cell(code)
         except KeyboardInterrupt:
@@ -85,22 +106,25 @@ class VirtuosoKernel(Kernel):
             exec_error = vexcp.value
             output = shell.output
 
-        # Handle plots separately to display inline.
-        # If there is a 'plot(...)' command in the code,
-        # ask the shell to save a .png  hardcopy at the end
-        # and display the image inline.
+        if(_plot_match is not None):
+            # Ask the shell to save a hardcopy
+            self._plt_file_name = '/tmp/jupyter_virtuoso_%s.png' % str(time.time())
+            _plt_cmd = ('saveGraphImage(?window __win_id__ ?fileName "%s" ?width %f ?height %f '
+                        '?units "inch" ?resolution %d ?resolutionUnits "pixels/in"') %\
+                       (self._plt_file_name, self._plt_width, self._plt_height,
+                        self._plt_resolution)
+            self._shell.run_raw(_plt_cmd)
 
-        # HACK: image created after doing 'plot' using
-        # saveGraphImage(?fileName "/tmp/rc.png" ?width 8 ?height 5 ?units
-        # "inch" ?resolution 96 ?resolutionUnits "pixels/in")
-        """
-        _image = Image(filename="/tmp/rc.png")
-        display_content = {'source': "kernel",
-                           'data': {'image/png': _image.data.encode('base64')},
-                           'metadata': {}}
-        self.send_response(self.iopub_socket, 'display_data',
-                           display_content)
-        """
+            # Display this image inline
+            _image = Image(filename=self._plt_file_name)
+            display_content = {'source': "kernel",
+                               'data': {'image/png': _image.data.encode('base64')},
+                               'metadata': {}}
+            self.send_response(self.iopub_socket, 'display_data',
+                               display_content)
+
+            # Delete the hardcopy
+            os.remove(self._plt_file_name)
 
         if interrupted:
             return {'status': 'abort', 'execution_count': self.execution_count}
