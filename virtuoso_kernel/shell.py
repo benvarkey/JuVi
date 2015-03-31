@@ -28,7 +28,7 @@ class VirtuosoShell(object):
     """
     This class gives a python interface to the Virtuoso shell.j
     """
-    prompt = '\r\n> $'
+    prompt = [re.compile(r'\r\n>\s$')]
     _banner = None
     _version_re = None
     _output = ""
@@ -64,9 +64,10 @@ class VirtuosoShell(object):
         super(VirtuosoShell, self).__init__(*args, **kwargs)
         self._start_virtuoso()
         self._version_re = re.compile(r'version (\d+(\.\d+)+)')
-        self._error_re = re.compile(r'\("(.*?)"\s+(\d+)\s+t\s+'
-                                    r'nil\s+\((.*?)\)\s*\)')
-        self._output_re = re.compile(r'(^[\S\s]*?)(?=(?:\r\n)?nil$)')
+        self._error_re = re.compile(r'([\s\S]+?)\*Error\* (.+)(\s*?)([\s\S]*)')
+        self._open_paren_re = re.compile(r'\(')
+        self._close_paren_re = re.compile(r'\)')
+        self._dbl_quote_re = re.compile(r'"')
 
     def _start_virtuoso(self):
         """
@@ -97,30 +98,21 @@ class VirtuosoShell(object):
         else, set to None
         """
         self._exec_error = None
-        if self._output != 'nil':
-            # non-error results are returned in a list
-            self._output = self._output[1:-1]
+        _err_match = self._error_re.search(self._output)
+        _err_output = None
+        if _err_match is not None:
+            self._exec_error = ("Error", 1, _err_match.group(2))
+            _err_output = _err_match.group(4)
+            self._output = _err_match.group(1)
 
-        # The output can have a stream of text ending
-        # with the following format if there is an error:
-        # ("errorClass" errorNumber t nil ("Error Message"))
-        _parsed_output = self._error_re.search(self._error_output)
-        self._exec_error = None
-        _printed_out = ''
-        if _parsed_output is not None:
-            self._exec_error = _parsed_output.groups()
-            self._exec_error = (self._exec_error[0],
-                                int(self._exec_error[1]),
-                                self._exec_error[2])
-            _printed_out = self._error_output[:_parsed_output.start()]
-        else:
-            _parsed_output = self._output_re.search(self._error_output)
-            _printed_out = _parsed_output.group(1)
+            # I like the '> ' prompt before the output,
+            # makes it easier to match outputs with input lines
+            # _shell_outputs = self._output.split("\r\n> ")[-1]
+            _shell_outputs = self._output[:_err_match.end(1)]
 
-            if(_printed_out != ''):
-                _printed_out = _printed_out + '\r\n'
-            self._output = _printed_out + self._output.rstrip()
-
+        if _err_output is not None:
+            self._output = (_shell_outputs + '\r\n' +
+                            _err_output)
         # If the shell reported any errors, throw exception
         if self._exec_error is not None:
             raise VirtuosoExceptions(self._exec_error)
@@ -138,23 +130,34 @@ class VirtuosoShell(object):
         """
         Executes the 'code'
 
-        #TODO: use 'store_history' and 'silent' similar to IPython
         """
-        # Intercept errors in execution using 'errset' function
-        _code_framed = '_exc_res=errset({' + code + '}) errset.errset'
 
-        self.run_raw(_code_framed)
-        self.wait_ready()
-        # if successful, return is 'nil',
-        # else, return is a list with error message
-        # printed messages can precede the error message
-        self._error_output = self._shell.before
+        # The SKILL shell doesn't intimate the user that it is waiting for
+        # a matching double-quote or a closing parenthesis.
+        # Since pexpect, or for that matter the user, has no way to distinguish
+        # between a hung shell and a wait for completion, I should check
+        # for completion before I send it out to the SKILL interpreter.
+        #
+        # Nothing fancy, just whether the number of open parenthesis match
+        # the closed ones, and if I have an even number of double quotes.
 
-        # get the result of execution
-        self._shell.sendline('_exc_res')
+        self._output = ''
+        if(len(self._open_paren_re.findall(code)) !=
+           len(self._close_paren_re.findall(code))):
+            raise VirtuosoExceptions(("Syntax Error", 1,
+                                      "Unmatched parenthesis"))
+        if(len(self._dbl_quote_re.findall(code)) % 2 != 0):
+            raise VirtuosoExceptions(("Syntax Error", 2,
+                                      "Unmatched double-quotes"))
+
+        _code_lines = [_line.rstrip() for _line in code.split('\n') if
+                       _line.rstrip() != '']
+        for _line in _code_lines:
+            self._shell.sendline(_line)
+        # I seem to need an extra newline to register output from
+        # multi-line inputs
+        self._shell.sendline("")
         self.wait_ready()
-        # if successful, return is a list
-        # else, return is 'nil'
         self._output = self._shell.before
 
         # Check the output and throw exception in case of error
@@ -167,8 +170,7 @@ class VirtuosoShell(object):
         Return a list of functions and variables starting with *token*
         """
         _cmd = 'listFunctions("^%s")' % token
-        self._shell.sendline(_cmd)
-        self.wait_ready()
+        self.run_raw(_cmd)
         _matches = []
         _output = self._shell.before
         if (_output) != 'nil':
@@ -177,8 +179,7 @@ class VirtuosoShell(object):
             _matches = _output.split()
 
         _cmd = 'listVariables("^%s")' % token
-        self._shell.sendline(_cmd)
-        self.wait_ready()
+        self.run_raw(_cmd)
         _output = self._shell.before
         if (_output) != 'nil':
             if _output[0] == '(':
@@ -195,8 +196,7 @@ class VirtuosoShell(object):
         # Make sure that only valid function/variable names are used
         token = re.match(r'^(\w+)', token).group(1)
         _cmd = 'help(%s)' % token
-        self._shell.sendline(_cmd)
-        self.wait_ready()
+        self.run_raw(_cmd)
         _info = ''
         if self._shell.before != 'nil':
             _info = self._shell.before
@@ -212,7 +212,11 @@ class VirtuosoShell(object):
         """
         Find the prompt after the shell output.
         """
-        self._shell.expect(self.prompt)
+        # We don't know for sure when the shell returns anything.
+        # so, use a do-while loope
+        self._shell.expect_list(self.prompt, searchwindowsize=8)
+        while(self._shell.buffer != ''):
+            self._shell.expect_list(self.prompt, searchwindowsize=8)
 
     def shutdown(self, restart):
         """

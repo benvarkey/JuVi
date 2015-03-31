@@ -108,9 +108,11 @@ class VirtuosoKernel(Kernel):
 
         if(_plot_match is not None):
             # Ask the shell to save a hardcopy
-            self._plt_file_name = '/tmp/jupyter_virtuoso_%s.png' % str(time.time())
-            _plt_cmd = ('saveGraphImage(?window __win_id__ ?fileName "%s" ?width %f ?height %f '
-                        '?units "inch" ?resolution %d ?resolutionUnits "pixels/in"') %\
+            self._plt_file_name = '/tmp/jupyter_virtuoso_%s.png' % \
+                                  str(time.time())
+            _plt_cmd = ('saveGraphImage(?window __win_id__ ?fileName "%s" '
+                        '?width %f ?height %f ?units "inch" '
+                        '?resolution %d ?resolutionUnits "pixels/in")') %\
                        (self._plt_file_name, self._plt_width, self._plt_height,
                         self._plt_resolution)
             self._shell.run_raw(_plt_cmd)
@@ -118,7 +120,8 @@ class VirtuosoKernel(Kernel):
             # Display this image inline
             _image = Image(filename=self._plt_file_name)
             display_content = {'source': "kernel",
-                               'data': {'image/png': _image.data.encode('base64')},
+                               'data': {'image/png':
+                                        _image.data.encode('base64')},
                                'metadata': {}}
             self.send_response(self.iopub_socket, 'display_data',
                                display_content)
