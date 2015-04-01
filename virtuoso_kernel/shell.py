@@ -28,7 +28,7 @@ class VirtuosoShell(object):
     """
     This class gives a python interface to the Virtuoso shell.j
     """
-    prompt = [re.compile(r'\r\n>\s$')]
+    prompt = [re.compile(r'\r\n(>\s)+$')]
     _banner = None
     _version_re = None
     _output = ""
@@ -217,6 +217,7 @@ class VirtuosoShell(object):
         self._shell.expect_list(self.prompt, searchwindowsize=8)
         while(self._shell.buffer != ''):
             self._shell.expect_list(self.prompt, searchwindowsize=8)
+        self._output = self._shell.before
 
     def shutdown(self, restart):
         """

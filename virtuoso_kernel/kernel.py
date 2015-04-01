@@ -5,6 +5,9 @@ Inspired by https://github.com/takluyver/bash_kernel
 """
 from IPython.kernel.zmq.kernelbase import Kernel
 from IPython.display import HTML, Image
+from IPython.kernel import (
+    get_connection_file, get_connection_info, connect_qtconsole
+)
 from .shell import VirtuosoShell, VirtuosoExceptions
 from pexpect import EOF
 import colorama
@@ -54,6 +57,7 @@ class VirtuosoKernel(Kernel):
         self._start_virtuoso()
         colorama.init()
         self._plot_re = re.compile(r'[^\w]?plot\(')
+        self._cell_magic_re = re.compile(r'^%+(\S+)')
         self._plt_width = 8.0
         self._plt_height = 5.0
         self._plt_resolution = 96
@@ -81,6 +85,24 @@ class VirtuosoKernel(Kernel):
         output = None
         interrupted = False
         exec_error = None
+
+        # Check for cell magic and handle magic
+        _magic_match = self._cell_magic_re.search(code)
+        if(_magic_match is not None):
+            _exec_status, _exec_message = self._handle_magics(
+                _magic_match.group(1), code)
+
+            if _exec_status is True:
+                return {'status': 'ok',
+                        'execution_count': self.execution_count,
+                        'payload': [],
+                        'user_expressions': {}}
+            else:
+                return {'status': 'error',
+                        'execution_count': self.execution_count,
+                        'ename': str('CellMagicError'),
+                        'evalue': str(1),
+                        'traceback': _exec_message['traceback']}
 
         # Handle plots separately to display inline.
         # If there is a 'plot(...)' command in the code,
@@ -117,17 +139,18 @@ class VirtuosoKernel(Kernel):
                         self._plt_resolution)
             self._shell.run_raw(_plt_cmd)
 
-            # Display this image inline
-            _image = Image(filename=self._plt_file_name)
-            display_content = {'source': "kernel",
-                               'data': {'image/png':
-                                        _image.data.encode('base64')},
-                               'metadata': {}}
-            self.send_response(self.iopub_socket, 'display_data',
-                               display_content)
+            if(os.path.isfile(self._plt_file_name)):
+                # Display this image inline
+                _image = Image(filename=self._plt_file_name)
+                display_content = {'source': "kernel",
+                                   'data': {'image/png':
+                                            _image.data.encode('base64')},
+                                   'metadata': {}}
+                self.send_response(self.iopub_socket, 'display_data',
+                                   display_content)
 
-            # Delete the hardcopy
-            os.remove(self._plt_file_name)
+                # Delete the hardcopy
+                os.remove(self._plt_file_name)
 
         if interrupted:
             return {'status': 'abort', 'execution_count': self.execution_count}
@@ -143,7 +166,10 @@ class VirtuosoKernel(Kernel):
             html_content = {'source': 'kernel', 'data': {'text/html':
                                                          self._err_header.data,
                                                          'text/plain':
-                                                         'Traceback:'},
+                                                         (colorama.Fore.RED +
+                                                          'Traceback:' +
+                                                          colorama.Fore.RESET)
+                                                         },
                             'metadata': {}}
             self.send_response(self.iopub_socket, 'display_data', html_content)
 
@@ -256,3 +282,39 @@ class VirtuosoKernel(Kernel):
         """
         self._shell.shutdown(restart)
         return {'restart': restart}
+
+    def _handle_magics(self, magic_code, code):
+        """
+        Handle cell magics
+        """
+        _exec_status = False
+        _content = None
+        err_content = None
+        if(magic_code == 'connect_info'):
+            try:
+                connection_file = get_connection_file()
+                _content = get_connection_info(unpack=False)
+            except Exception as e:
+                error("Could not get connection info: %r" % e)
+                return
+
+        if(magic_code == 'history'):
+            _args = re.search(r'^%(\S+)(?:\s*)(\d*)', code)
+            self._shell.run_raw('history(' + _args.group(2) + ')')
+            _content = self._shell.output
+
+        if(_content is not None):
+            execute_content = {'execution_count': self.execution_count,
+                               'data': {'text/plain': _content},
+                               'metadata': {}}
+            self.send_response(self.iopub_socket, 'execute_result',
+                               execute_content)
+            _exec_status = True
+        else:
+            err_content = {'execution_count': self.execution_count,
+                           'ename': str('CellMagicError'),
+                           'evalue': str(1),
+                           'traceback': ['Invalid cell magic']}
+            self.send_response(self.iopub_socket, 'error', err_content)
+
+        return _exec_status, err_content
