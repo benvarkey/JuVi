@@ -19,6 +19,9 @@ __version__ = '0.1'
 
 
 class VirtuosoKernel(Kernel):
+    """
+    Kernel to connect virtuoso to Jupyter front-end
+    """
     implementation = 'virtuoso_kernel'
     implementation_version = __version__
     language = 'SKILL'
@@ -56,7 +59,7 @@ class VirtuosoKernel(Kernel):
         super(VirtuosoKernel, self).__init__(**kwargs)
         self._start_virtuoso()
         colorama.init()
-        self._plot_re = re.compile(r'[^\w]?plot\(')
+        self._plot_re = re.compile(r'[^\w]?\w*?[pP]lot\w*\(')
         self._cell_magic_re = re.compile(r'^%+(\S+)')
         self._plt_width = 8.0
         self._plt_height = 5.0

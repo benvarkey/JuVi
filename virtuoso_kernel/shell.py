@@ -28,7 +28,7 @@ class VirtuosoShell(object):
     """
     This class gives a python interface to the Virtuoso shell.j
     """
-    prompt = [re.compile(r'\r\n(>\s)+$')]
+    prompt = [re.compile(r'\r\n>\s$'), re.compile(r'^>\s$')]
     _banner = None
     _version_re = None
     _output = ""
@@ -83,7 +83,7 @@ class VirtuosoShell(object):
             # not relevant for Jupyter
             self._shell = pexpect.spawn('tcsh -c "virtuoso -nograph"',
                                         echo=False)
-            self._shell.expect('\r\n> ')
+            self.wait_ready()
         finally:
             signal.signal(signal.SIGINT, sig)
 
@@ -152,11 +152,10 @@ class VirtuosoShell(object):
 
         _code_lines = [_line.rstrip() for _line in code.split('\n') if
                        _line.rstrip() != '']
+        # I like having a prompt to group outputs :-P
+        self._shell.sendline('')
         for _line in _code_lines:
             self._shell.sendline(_line)
-        # I seem to need an extra newline to register output from
-        # multi-line inputs
-        self._shell.sendline("")
         self.wait_ready()
         self._output = self._shell.before
 
@@ -212,12 +211,7 @@ class VirtuosoShell(object):
         """
         Find the prompt after the shell output.
         """
-        # We don't know for sure when the shell returns anything.
-        # so, use a do-while loope
         self._shell.expect_list(self.prompt, searchwindowsize=8)
-        while(self._shell.buffer != ''):
-            self._shell.expect_list(self.prompt, searchwindowsize=8)
-        self._output = self._shell.before
 
     def shutdown(self, restart):
         """
@@ -229,3 +223,24 @@ class VirtuosoShell(object):
             self.run_cell('exit()')
         except EOF:
             self._shell.close()
+
+    def flush(self):
+        """
+        clear the buffer of the messages from the virtuoso shell
+        """
+        while(self._shell.after != pexpect.TIMEOUT):
+            self._shell.expect_list([self.prompt[0],
+                                     self.prompt[1],
+                                     pexpect.TIMEOUT],
+                                    searchwindowsize=8, timeout=1)
+        self._shell.sendline('')
+        self._shell.expect_list([self.prompt[0],
+                                 self.prompt[1],
+                                 pexpect.TIMEOUT],
+                                searchwindowsize=8, timeout=1)
+        if(self._shell.after == pexpect.TIMEOUT):
+            # The shell is probably hung, interrupt
+            self._shell.sendcontrol('c')
+            self._shell.sendline('')
+        self._shell.expect_list(self.prompt, searchwindowsize=8, timeout=1)
+        self._output = self._shell.before
