@@ -108,28 +108,34 @@ class VirtuosoShell(object):
         if _err_match is not None:
             self._exec_error = ("Error", 1, _err_match.group(2))
             _err_output = _err_match.group(4)
-            self._output = _err_match.group(1)
+            # self._output = _err_match.group(1)
 
-            # I like the '> ' prompt before the output,
-            # makes it easier to match outputs with input lines
-            # _shell_outputs = self._output.split("\r\n> ")[-1]
+            # self._output = (self._output +
+            #                 colorama.Fore.RED +
+            #                 '*Error* ' + _err_match.group(2) +
+            #                 colorama.Fore.RESET + '\n' +
+            #                 _err_output)
 
-        if _err_output is not None:
-            self._output = (self._output +
-                            colorama.Fore.RED +
-                            '*Error* ' + _err_match.group(2) +
-                            colorama.Fore.RESET + '\n' +
-                            _err_output)
+            # Find results with errors:
 
         # number the output line
         _output_list = self._output_prompt_re.split(self._output)
         _out_num = 1
+        _color = colorama.Fore.YELLOW
         self._output = ''
         for _oline in _output_list:
             if(_oline != ''):
-                self._output += '%s%d>%s %s\n' % (colorama.Fore.YELLOW,
-                                                  _out_num,
-                                                  colorama.Fore.RESET, _oline)
+                if self._error_re.search(_oline) is not None:
+                    _color = colorama.Fore.RED
+                    self._output += ('%s%s%d> %s%s%s\n' %
+                                     (colorama.Style.BRIGHT, _color, _out_num,
+                                      _oline, colorama.Fore.RESET,
+                                      colorama.Style.NORMAL))
+                else:
+                    _color = colorama.Fore.YELLOW
+                    self._output += '%s%d>%s %s\n' % (_color, _out_num,
+                                                      colorama.Fore.RESET,
+                                                      _oline)
                 _out_num += 1
         # If the shell reported any errors, throw exception
         if self._exec_error is not None:

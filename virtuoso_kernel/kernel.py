@@ -311,6 +311,10 @@ class VirtuosoKernel(Kernel):
             _args = re.search(r'^%(\S+)(?:\s*)(\S*)', code)
             return self._show_image_inline(_args.group(2))
 
+        if(magic_code == 'flush'):
+            self._shell.flush()
+            _content = ''
+
         if(_content is not None):
             execute_content = {'execution_count': self.execution_count,
                                'data': {'text/plain': _content},
