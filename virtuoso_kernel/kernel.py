@@ -68,6 +68,7 @@ class VirtuosoKernel(Kernel):
 
         # Start a new window to handle plots
         self._shell.run_raw("__win_id__ = awvCreatePlotWindow()")
+        self._shell.flush()
 
     def _start_virtuoso(self):
         """
@@ -304,7 +305,7 @@ class VirtuosoKernel(Kernel):
         if(magic_code == 'history'):
             _args = re.search(r'^%(\S+)(?:\s*)(\d*)', code)
             self._shell.run_raw('history(' + _args.group(2) + ')')
-            _content = self._shell.output
+            _content = self._shell.output[:-1]
 
         if(_content is not None):
             execute_content = {'execution_count': self.execution_count,

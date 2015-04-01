@@ -10,6 +10,8 @@ import pexpect
 from pexpect import EOF
 from subprocess import check_output
 import subprocess
+from time import sleep
+import colorama
 
 
 class VirtuosoExceptions(Exception):
@@ -28,7 +30,7 @@ class VirtuosoShell(object):
     """
     This class gives a python interface to the Virtuoso shell.j
     """
-    prompt = [re.compile(r'\r\n>\s$'), re.compile(r'^>\s$')]
+    prompt = [re.compile(r'\r\n> $'), re.compile(r'^> $')]
     _banner = None
     _version_re = None
     _output = ""
@@ -68,6 +70,7 @@ class VirtuosoShell(object):
         self._open_paren_re = re.compile(r'\(')
         self._close_paren_re = re.compile(r'\)')
         self._dbl_quote_re = re.compile(r'"')
+        self._output_prompt_re = re.compile(r'^> |\s+> ')
 
     def _start_virtuoso(self):
         """
@@ -84,6 +87,7 @@ class VirtuosoShell(object):
             self._shell = pexpect.spawn('tcsh -c "virtuoso -nograph"',
                                         echo=False)
             self.wait_ready()
+            self._output = self._shell.before
         finally:
             signal.signal(signal.SIGINT, sig)
 
@@ -113,6 +117,17 @@ class VirtuosoShell(object):
         if _err_output is not None:
             self._output = (_shell_outputs + '\r\n' +
                             _err_output)
+
+        # number the output line
+        _output_list = self._output_prompt_re.split(self._output)
+        _out_num = 1
+        self._output = ''
+        for _oline in _output_list:
+            if(_oline != ''):
+                self._output += '%s%d>%s %s\n' % (colorama.Fore.YELLOW,
+                                                  _out_num,
+                                                  colorama.Fore.RESET, _oline)
+                _out_num += 1
         # If the shell reported any errors, throw exception
         if self._exec_error is not None:
             raise VirtuosoExceptions(self._exec_error)
@@ -125,6 +140,7 @@ class VirtuosoShell(object):
         """
         self._shell.sendline(code)
         self.wait_ready()
+        self._output = self._shell.before
 
     def run_cell(self, code):
         """
@@ -153,7 +169,9 @@ class VirtuosoShell(object):
         _code_lines = [_line.rstrip() for _line in code.split('\n') if
                        _line.rstrip() != '']
         # I like having a prompt to group outputs :-P
-        self._shell.sendline('')
+        # except if there is only one line
+        if(len(_code_lines) > 1):
+            self._shell.sendline('')
         for _line in _code_lines:
             self._shell.sendline(_line)
         self.wait_ready()
@@ -211,6 +229,9 @@ class VirtuosoShell(object):
         """
         Find the prompt after the shell output.
         """
+        # I need some delay to deal with tty idiosyncrasies:
+        # Ref: http://pexpect.readthedocs.org/en/latest/commonissues.html
+        sleep(0.1)
         self._shell.expect_list(self.prompt, searchwindowsize=8)
 
     def shutdown(self, restart):
@@ -242,5 +263,5 @@ class VirtuosoShell(object):
             # The shell is probably hung, interrupt
             self._shell.sendcontrol('c')
             self._shell.sendline('')
-        self._shell.expect_list(self.prompt, searchwindowsize=8, timeout=1)
+            self._shell.expect_list(self.prompt, searchwindowsize=8, timeout=5)
         self._output = self._shell.before
