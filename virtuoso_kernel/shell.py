@@ -66,7 +66,8 @@ class VirtuosoShell(object):
         super(VirtuosoShell, self).__init__(*args, **kwargs)
         self._start_virtuoso()
         self._version_re = re.compile(r'version (\d+(\.\d+)+)')
-        self._error_re = re.compile(r'([\s\S]+?)\*Error\* (.+)(\s*?)([\s\S]*)')
+        self._error_re = re.compile(r'^([\s\S]*?)\*Error\*'
+                                    r'(.+)(\s*)([\s\S]*)')
         self._open_paren_re = re.compile(r'\(')
         self._close_paren_re = re.compile(r'\)')
         self._dbl_quote_re = re.compile(r'"')
@@ -112,10 +113,12 @@ class VirtuosoShell(object):
             # I like the '> ' prompt before the output,
             # makes it easier to match outputs with input lines
             # _shell_outputs = self._output.split("\r\n> ")[-1]
-            _shell_outputs = self._output[:_err_match.end(1)]
 
         if _err_output is not None:
-            self._output = (_shell_outputs + '\r\n' +
+            self._output = (self._output +
+                            colorama.Fore.RED +
+                            '*Error* ' + _err_match.group(2) +
+                            colorama.Fore.RESET + '\n' +
                             _err_output)
 
         # number the output line
