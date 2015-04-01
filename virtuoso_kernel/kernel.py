@@ -307,6 +307,10 @@ class VirtuosoKernel(Kernel):
             self._shell.run_raw('history(' + _args.group(2) + ')')
             _content = self._shell.output[:-1]
 
+        if(magic_code == 'image'):
+            _args = re.search(r'^%(\S+)(?:\s*)(\S*)', code)
+            return self._show_image_inline(_args.group(2))
+
         if(_content is not None):
             execute_content = {'execution_count': self.execution_count,
                                'data': {'text/plain': _content},
@@ -321,4 +325,25 @@ class VirtuosoKernel(Kernel):
                            'traceback': ['Invalid cell magic']}
             self.send_response(self.iopub_socket, 'error', err_content)
 
+        return _exec_status, err_content
+
+    def _show_image_inline(self, filename):
+        _exec_status = False
+        err_content = None
+        if(os.path.isfile(filename)):
+            # Display this image inline
+            _image = Image(filename=filename)
+            display_content = {'source': "kernel",
+                               'data': {'image/png':
+                                        _image.data.encode('base64')},
+                               'metadata': {}}
+            self.send_response(self.iopub_socket, 'display_data',
+                               display_content)
+            _exec_status = True
+        else:
+            err_content = {'execution_count': self.execution_count,
+                           'ename': str('CellMagicError'),
+                           'evalue': str(2),
+                           'traceback': ['Image not found']}
+            self.send_response(self.iopub_socket, 'error', err_content)
         return _exec_status, err_content
