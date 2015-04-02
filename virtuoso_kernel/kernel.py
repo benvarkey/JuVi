@@ -138,7 +138,7 @@ class VirtuosoKernel(Kernel):
                                   str(time.time())
             _plt_cmd = ('saveGraphImage(?window __win_id__ ?fileName "%s" '
                         '?width %f ?height %f ?units "inch" '
-                        '?resolution %d ?resolutionUnits "pixels/in"'
+                        '?resolution %d ?resolutionUnits "pixels/in" '
                         '?saveEachSubwindowSeparately nil)') %\
                        (self._plt_file_name, self._plt_width, self._plt_height,
                         self._plt_resolution)

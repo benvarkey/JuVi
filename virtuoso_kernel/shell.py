@@ -30,7 +30,6 @@ class VirtuosoShell(object):
     """
     This class gives a python interface to the Virtuoso shell.j
     """
-    prompt = [re.compile(r'\r\n> $'), re.compile(r'^> $')]
     _banner = None
     _version_re = None
     _output = ""
@@ -64,14 +63,19 @@ class VirtuosoShell(object):
 
     def __init__(self, *args, **kwargs):
         super(VirtuosoShell, self).__init__(*args, **kwargs)
-        self._start_virtuoso()
+        self.prompt = [re.compile(r'\r\n<<pyvi>> $'),
+                       re.compile(r'^<<pyvi>> $')]
+        self._shell_available_re = re.compile(r'"__jupyter_kernel_ready__"'
+                                              r'[\s\S]+')
         self._version_re = re.compile(r'version (\d+(\.\d+)+)')
         self._error_re = re.compile(r'^([\s\S]*?)\*Error\*'
                                     r'(.+)(\s*)([\s\S]*)')
         self._open_paren_re = re.compile(r'\(')
         self._close_paren_re = re.compile(r'\)')
         self._dbl_quote_re = re.compile(r'"')
-        self._output_prompt_re = re.compile(r'^> |\s+> ')
+        # self._output_prompt_re = re.compile(r'^<<pyvi>> |\s+<<pyvi>> ')
+        self._output_prompt_re = re.compile(r'<<pyvi>> ')
+        self._start_virtuoso()
 
     def _start_virtuoso(self):
         """
@@ -87,8 +91,13 @@ class VirtuosoShell(object):
             # not relevant for Jupyter
             self._shell = pexpect.spawn('tcsh -c "virtuoso -nograph"',
                                         echo=False)
-            self.wait_ready()
+            self._shell.expect(r'> $', searchwindowsize=64)
             self._output = self._shell.before
+            self._shell.sendline('setPrompts("<<pyvi>> " '
+                                 '"<%d<pyvi>> ")')
+            # sleep(0.5)
+            # self._shell.expect(r'<<pyvi>> ', searchwindowsize=64)
+            self._shell.expect_list(self.prompt, searchwindowsize=64)
         finally:
             signal.signal(signal.SIGINT, sig)
 
@@ -104,22 +113,12 @@ class VirtuosoShell(object):
         """
         self._exec_error = None
         _err_match = self._error_re.search(self._output)
-        _err_output = None
         if _err_match is not None:
             self._exec_error = ("Error", 1, _err_match.group(2))
-            _err_output = _err_match.group(4)
-            # self._output = _err_match.group(1)
-
-            # self._output = (self._output +
-            #                 colorama.Fore.RED +
-            #                 '*Error* ' + _err_match.group(2) +
-            #                 colorama.Fore.RESET + '\n' +
-            #                 _err_output)
-
-            # Find results with errors:
 
         # number the output line
-        _output_list = self._output_prompt_re.split(self._output)
+        _output_list = [_line.rstrip() for _line in
+                        self._output_prompt_re.split(self._output)]
         _out_num = 1
         _color = colorama.Fore.YELLOW
         self._output = ''
@@ -137,6 +136,7 @@ class VirtuosoShell(object):
                                                       colorama.Fore.RESET,
                                                       _oline)
                 _out_num += 1
+        self._output = self.output.rstrip()
         # If the shell reported any errors, throw exception
         if self._exec_error is not None:
             raise VirtuosoExceptions(self._exec_error)
@@ -148,8 +148,7 @@ class VirtuosoShell(object):
         No error checking is done.
         """
         self._shell.sendline(code)
-        self.wait_ready()
-        self._output = self._shell.before
+        self.wait_ready(raw_mode=True)
 
     def run_cell(self, code):
         """
@@ -166,7 +165,6 @@ class VirtuosoShell(object):
         # Nothing fancy, just whether the number of open parenthesis match
         # the closed ones, and if I have an even number of double quotes.
 
-        self._output = ''
         if(len(self._open_paren_re.findall(code)) !=
            len(self._close_paren_re.findall(code))):
             raise VirtuosoExceptions(("Syntax Error", 1,
@@ -184,7 +182,6 @@ class VirtuosoShell(object):
         for _line in _code_lines:
             self._shell.sendline(_line)
         self.wait_ready()
-        self._output = self._shell.before
 
         # Check the output and throw exception in case of error
         self._parse_output()
@@ -234,14 +231,28 @@ class VirtuosoShell(object):
         """
         self._shell.sendintr()
 
-    def wait_ready(self):
+    def wait_ready(self, raw_mode=False):
         """
         Find the prompt after the shell output.
         """
+        if(raw_mode):
+            self._shell.expect_list(self.prompt, searchwindowsize=64)
+            self._output = self._shell.before
+            return
+
+        self._shell.sendline('println("__jupyter_kernel_ready__")')
         # I need some delay to deal with tty idiosyncrasies:
         # Ref: http://pexpect.readthedocs.org/en/latest/commonissues.html
-        sleep(0.1)
-        self._shell.expect_list(self.prompt, searchwindowsize=8)
+        # sleep(0.1)
+        self._output = ''
+        _exp_list = [pexpect.TIMEOUT]
+        _exp_list.extend(self.prompt)
+        self._shell.expect_list(_exp_list, searchwindowsize=64)
+        while(self._shell_available_re.search(self._shell.before) is None):
+            self._output += (self._shell.before + '\r\n')
+            sleep(0.1)
+            self._shell.expect_list(_exp_list, searchwindowsize=64)
+        self._output += self._shell_available_re.sub('', self._shell.before)
 
     def shutdown(self, restart):
         """
@@ -262,15 +273,16 @@ class VirtuosoShell(object):
             self._shell.expect_list([self.prompt[0],
                                      self.prompt[1],
                                      pexpect.TIMEOUT],
-                                    searchwindowsize=8, timeout=1)
+                                    searchwindowsize=64, timeout=1)
         self._shell.sendline('')
         self._shell.expect_list([self.prompt[0],
                                  self.prompt[1],
                                  pexpect.TIMEOUT],
-                                searchwindowsize=8, timeout=1)
+                                searchwindowsize=64, timeout=1)
         if(self._shell.after == pexpect.TIMEOUT):
             # The shell is probably hung, interrupt
             self._shell.sendcontrol('c')
             self._shell.sendline('')
-            self._shell.expect_list(self.prompt, searchwindowsize=8, timeout=5)
+            self._shell.expect_list(self.prompt, searchwindowsize=64,
+                                    timeout=5)
         self._output = self._shell.before
