@@ -227,22 +227,6 @@ class VirtuosoKernel(Kernel):
                 'metadata': dict(),
                 'status': 'ok'}
 
-    def _pretty_introspection(self, info, keyword):
-        import re
-        # Optional keywords
-        info = re.sub(r'(\?\w+)', r'%s\1%s' % (colorama.Fore.YELLOW,
-                                               colorama.Fore.RESET), info,
-                      count=0)
-        # Required arguments
-        info = re.sub(r'(\s*)(%s\()(\s*)([\w\s]+)([\s\S]+)' % keyword,
-                      r'\1\2\3%s\4%s\5' % (colorama.Fore.GREEN,
-                                           colorama.Fore.RESET), info)
-        info = re.sub(r'(%s)(\()' % keyword,
-                      r'%s\1%s\2' % (colorama.Fore.BLUE,
-                                     colorama.Fore.RESET),
-                      info, count=0)
-        return info
-
     def _html_introspection(self, info, keyword):
         import re
         info = re.sub(r'(\?\w+)', r'<i>\1</i>', info, count=0)
@@ -273,11 +257,15 @@ class VirtuosoKernel(Kernel):
             return default
 
         # 'text/html': HTML().data
-        _html_info = self._html_introspection(_info, _token)
-        _tt_info = self._pretty_introspection(_info, _token)
+        # _html_info = self._html_introspection(_info, _token)
+        # _tt_info = self._pretty_introspection(_info, _token)
+        # return {'status': 'ok',
+        #         'data': {'text/html': _html_info.data,
+        #                  'text/plain': _tt_info},
+        #         'metadata': dict(),
+        #         'found': True}
         return {'status': 'ok',
-                'data': {'text/html': _html_info.data,
-                         'text/plain': _tt_info},
+                'data': {'text/plain': _info},
                 'metadata': dict(),
                 'found': True}
 
@@ -307,6 +295,10 @@ class VirtuosoKernel(Kernel):
             _args = re.search(r'^%(\S+)(?:\s*)(\d*)', code)
             self._shell.run_raw('history(' + _args.group(2) + ')')
             _content = self._shell.output[:-1]
+
+        if(magic_code == 'help'):
+            _args = re.search(r'^%(\S+)(?:\s*)(\S*)', code)
+            _content = self._shell.get_info(_args.group(2))
 
         if(magic_code == 'image'):
             _args = re.search(r'^%(\S+)(?:\s*)(\S*)', code)

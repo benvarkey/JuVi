@@ -141,6 +141,22 @@ class VirtuosoShell(object):
         if self._exec_error is not None:
             raise VirtuosoExceptions(self._exec_error)
 
+    def _pretty_introspection(self, info, keyword):
+        import re
+        # Optional keywords
+        info = re.sub(r'(\?\w+)', r'%s\1%s' % (colorama.Fore.YELLOW,
+                                               colorama.Fore.RESET), info,
+                      count=0)
+        # Required arguments
+        info = re.sub(r'(\s*)(%s\()(\s*)([\w\s]+)([\s\S]+)' % keyword,
+                      r'\1\2\3%s\4%s\5' % (colorama.Fore.GREEN,
+                                           colorama.Fore.RESET), info)
+        info = re.sub(r'(%s)(\()' % keyword,
+                      r'%s\1%s\2' % (colorama.Fore.BLUE,
+                                     colorama.Fore.RESET),
+                      info, count=0)
+        return info
+
     def run_raw(self, code):
         """
         Send the code as it is.
@@ -223,7 +239,7 @@ class VirtuosoShell(object):
         _info = ''
         if self._shell.before != 'nil':
             _info = self._shell.before
-        return (_info, token)
+        return (self._pretty_introspection(_info, token))
 
     def interrupt(self):
         """
