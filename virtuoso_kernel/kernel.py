@@ -199,7 +199,6 @@ class VirtuosoKernel(Kernel):
                     'user_expressions': {}}
 
     def do_complete(self, code, cursor_pos):
-        # Based on bash_kernel code
         code = code[:cursor_pos]
         default = {'matches': [],
                    'cursor_start': 0,
@@ -210,19 +209,20 @@ class VirtuosoKernel(Kernel):
         if not code or code[-1] == ' ':
             return default
 
-        _tokens = code.split()
-        if not _tokens:
+        _lines = code.splitlines(True)
+        if not _lines:
             return default
 
-        _token = _tokens[-1]
-        _matches = self._shell.get_matches(_token)
+        _matches, _token = self._shell.get_matches(_lines[-1])
+        # when completing methods/attributes, _token is ''
+        _cstart = cursor_pos - len(_token)
 
         if len(_matches) == 0:
             return default
 
         start = cursor_pos - len(_token)
         return {'matches': _matches,
-                'cursor_start': start,
+                'cursor_start': _cstart,
                 'cursor_end': cursor_pos,
                 'metadata': dict(),
                 'status': 'ok'}
@@ -251,7 +251,7 @@ class VirtuosoKernel(Kernel):
             return default
 
         _token = _tokens[-1]
-        _info, _token = self._shell.get_info(_token)
+        _info = self._shell.get_info(_token)
 
         if len(_info) == 0:
             return default
