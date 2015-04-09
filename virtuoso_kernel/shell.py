@@ -70,6 +70,8 @@ class VirtuosoShell(object):
         self._version_re = re.compile(r'version (\d+(\.\d+)+)')
         self._error_re = re.compile(r'^([\s\S]*?)\*Error\*'
                                     r'(.+)(\s*)([\s\S]*)')
+        self._open_braces_re = re.compile(r'\{')
+        self._close_braces_re = re.compile(r'\}')
         self._open_paren_re = re.compile(r'\(')
         self._close_paren_re = re.compile(r'\)')
         self._dbl_quote_re = re.compile(r'"')
@@ -200,6 +202,10 @@ class VirtuosoShell(object):
         # Nothing fancy, just whether the number of open parenthesis match
         # the closed ones, and if I have an even number of double quotes.
 
+        if(len(self._open_braces_re.findall(code)) !=
+           len(self._close_braces_re.findall(code))):
+            raise VirtuosoExceptions(("Syntax Error", 1,
+                                      "Unmatched braces"))
         if(len(self._open_paren_re.findall(code)) !=
            len(self._close_paren_re.findall(code))):
             raise VirtuosoExceptions(("Syntax Error", 1,
@@ -243,10 +249,10 @@ class VirtuosoShell(object):
             _token = _match.group(1)
             self.run_raw(_cmd, raw_mode=_raw_mode)
             if(self._error_re.search(self._output) is None):
-                _output = self._output.replace('(', '')
-                _output = _output.replace(')', '')
-                _output = _output.replace('nil', '')
-                _output = self._output_prompt_re.sub('', _output)
+                _output = self._output.replace('(', ' ')
+                _output = _output.replace(')', ' ')
+                _output = _output.replace('nil', ' ')
+                _output = self._output_prompt_re.sub(' ', _output)
                 _match_list = _output.split()
                 if(len(_match.groups()) == 3):
                     # when there is part of an attr.
@@ -264,7 +270,7 @@ class VirtuosoShell(object):
         # TODO: get info on variables also
         """
         # Make sure that only valid function/variable names are used
-        token = re.match(r'^(\w+)', token).group(1)
+        token = re.match(r'(\w+?)\W*$', token).group(1)
         _cmd = 'help(%s)' % token
         self.run_raw(_cmd)
         _info = ''
