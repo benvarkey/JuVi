@@ -92,25 +92,16 @@ class VirtuosoShell(object):
         """
         Spawn a virtuoso shell.
         """
-        # Signal handlers are inherited by forked processes, and we can't
-        # easily # reset it from the subprocess. Since kernelapp ignores SIGINT
-        # except in # message handlers, we need to temporarily reset the SIGINT
-        # handler here # so that virtuoso and its children are interruptible.
-        sig = signal.signal(signal.SIGINT, signal.SIG_DFL)
-        try:
-            # I could use 'setPrompts' for setting SKILL prompt, but,
-            # not relevant for Jupyter
-            self._shell = pexpect.spawn('tcsh -c "virtuoso -nograph"',
-                                        echo=False)
-            self._shell.expect(r'> $', searchwindowsize=64)
-            self._output = self._shell.before
-            self._shell.sendline('setPrompts("<<pyvi>> " '
-                                 '"<%d<pyvi>> ")')
-            # sleep(0.5)
-            # self._shell.expect(r'<<pyvi>> ', searchwindowsize=64)
-            self._shell.expect_list(self.prompt, searchwindowsize=64)
-        finally:
-            signal.signal(signal.SIGINT, sig)
+        # I could use 'setPrompts' for setting SKILL prompt, but,
+        # not relevant for Jupyter
+        self._shell = pexpect.spawn('tcsh -c "virtuoso -nograph"',
+                                    echo=False)
+        self._shell.expect(r'> $', searchwindowsize=64)
+        self._output = self._shell.before
+        self._shell.sendline('setPrompts("<<pyvi>> " ' '"<%d<pyvi>> ")')
+        # sleep(0.5)
+        # self._shell.expect(r'<<pyvi>> ', searchwindowsize=64)
+        self._shell.expect_list(self.prompt, searchwindowsize=64)
 
     def _parse_output(self):
         """

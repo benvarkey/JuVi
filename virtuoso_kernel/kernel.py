@@ -8,6 +8,7 @@ from IPython.display import HTML, Image
 from IPython.kernel import (
     get_connection_file, get_connection_info, connect_qtconsole
 )
+import signal
 from .shell import VirtuosoShell, VirtuosoExceptions
 from pexpect import EOF
 import colorama
@@ -70,11 +71,32 @@ class VirtuosoKernel(Kernel):
         self._shell.run_raw("__win_id__ = awvCreatePlotWindow()")
         self._shell.flush()
 
+    def _handle_interrupt(self, signum, frame):
+        """
+        Interrupt handler for the kernel
+        """
+        self._shell.interrupt()
+        self._shell.run_raw("]")
+        self._shell.wait_ready()
+        output = self._shell.output
+        err_content = {'execution_count': self.execution_count, 'ename': '',
+                       'evalue': '', 'traceback': "Virtuoso Shell Interrupted"}
+        self.send_response(self.iopub_socket, 'error', err_content)
+
     def _start_virtuoso(self):
         """
         Start the virtuoso shell
         """
-        self._shell = VirtuosoShell()
+        # Signal handlers are inherited by forked processes, and we can't
+        # easily reset it from the subprocess. Since kernelapp ignores SIGINT
+        # except in message handlers, we need to temporarily reset the SIGINT
+        # handler here so that virtuoso and its children are interruptible.
+        sig = signal.signal(signal.SIGINT, signal.SIG_DFL)
+        try:
+            self._shell = VirtuosoShell()
+        finally:
+            # signal.signal(signal.SIGINT, sig)
+            signal.signal(signal.SIGINT, self._handle_interrupt)
 
     def do_execute(self, code, silent, store_history=True,
                    user_expressions=None, allow_stdin=False):
