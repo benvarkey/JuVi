@@ -261,7 +261,8 @@ class VirtuosoShell(object):
         # TODO: get info on variables also
         """
         # Make sure that only valid function/variable names are used
-        token = re.match(r'(\w+?)\W*$', token).group(1)
+        if token.rstrip() != '':
+            token = re.match(r'(\S+?)\s*$', token).group(1)
         _cmd = 'help(%s)' % token
         self.run_raw(_cmd)
         _info = ''

@@ -37,7 +37,7 @@ if svem_flag in sys.argv:
     sys.argv.remove(svem_flag)
 
 setup(name='virtuoso_kernel',
-      version='0.3',
+      version='0.9',
       description='A virtuoso kernel for IPython',
       #long_description=readme,
       author='Ben Varkey Benjamin',

@@ -15,8 +15,9 @@ import colorama
 import re
 import time
 import os
+import zmq
 
-__version__ = '0.1'
+__version__ = '0.9'
 
 
 class VirtuosoKernel(Kernel):
@@ -76,12 +77,8 @@ class VirtuosoKernel(Kernel):
         Interrupt handler for the kernel
         """
         self._shell.interrupt()
-        self._shell.run_raw("]")
+        self._shell._shell.sendline("]")
         self._shell.wait_ready()
-        output = self._shell.output
-        err_content = {'execution_count': self.execution_count, 'ename': '',
-                       'evalue': '', 'traceback': "Virtuoso Shell Interrupted"}
-        self.send_response(self.iopub_socket, 'error', err_content)
 
     def _start_virtuoso(self):
         """
@@ -95,8 +92,8 @@ class VirtuosoKernel(Kernel):
         try:
             self._shell = VirtuosoShell()
         finally:
-            # signal.signal(signal.SIGINT, sig)
-            signal.signal(signal.SIGINT, self._handle_interrupt)
+            signal.signal(signal.SIGINT, sig)
+            pass
 
     def do_execute(self, code, silent, store_history=True,
                    user_expressions=None, allow_stdin=False):
@@ -142,10 +139,9 @@ class VirtuosoKernel(Kernel):
 
         try:
             output = shell.run_cell(code)
-        except KeyboardInterrupt:
-            shell.interrupt()
+        except (zmq.ZMQError, KeyboardInterrupt):
+            self._handle_interrupt(signal.SIGINT, None)
             interrupted = True
-            shell.wait_ready()
             output = shell.output
         except EOF:
             output = shell.output + '\r\nRestarting Virtuoso'
@@ -323,8 +319,9 @@ class VirtuosoKernel(Kernel):
             _content = self._shell.get_info(_args.group(2))
 
         if(magic_code == 'image'):
-            _args = re.search(r'^%(\S+)(?:\s*)(\S*)', code)
-            return self._show_image_inline(_args.group(2))
+            _args = re.search(r'^%(\S+)(?:\s*)(\S+)', code)
+            if _args is not None:
+                return self._show_image_inline(_args.group(2))
 
         if(magic_code == 'flush'):
             self._shell.flush()
