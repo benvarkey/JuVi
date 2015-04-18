@@ -43,7 +43,7 @@ class VirtuosoKernel(Kernel):
         return {'name': 'SKILL',
                 'version': self.language_version,
                 'mimetype': 'text/x-scheme',
-                'file_extension': 'il',
+                'file_extension': '.il',
                 'pygments_lexer': 'scheme',
                 'codemirror_mode': 'scheme'}
 
