@@ -42,10 +42,10 @@ class VirtuosoKernel(Kernel):
         """
         return {'name': 'SKILL',
                 'version': self.language_version,
-                'mimetype': 'text/x-scheme',
+                'mimetype': 'text/x-skill',
                 'file_extension': '.il',
                 'pygments_lexer': 'scheme',
-                'codemirror_mode': 'scheme'}
+                'codemirror_mode': 'skill'}
 
     @property
     def banner(self):

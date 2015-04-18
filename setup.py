@@ -7,8 +7,8 @@ import sys
 
 kernel_json = {"argv":[sys.executable,"-m","virtuoso_kernel", "-f", "{connection_file}"],
  "display_name":"Virtuoso",
- "language":"scheme",
- "codemirror_mode":"scheme"
+ "language":"skill",
+ "codemirror_mode":"skill"
 }
 
 class install_with_kernelspec(install):
@@ -48,8 +48,8 @@ setup(name='virtuoso_kernel',
       install_requires=['pexpect>=3.3'],
       classifiers = [
           'Framework :: IPython',
-          'License :: OSI Approved :: BSD License',
-          'Programming Language :: Python :: 3',
+          'License :: OSI Approved :: MIT License',
+          'Programming Language :: Python :: 2',
           'Topic :: System :: Shells',
       ]
 )
