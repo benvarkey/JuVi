@@ -160,14 +160,14 @@ class VirtuosoShell(object):
                                                colorama.Fore.RESET), info,
                       count=0)
         # Required arguments
-        info = re.sub(r'(\s*)(%s\()([\r\n]*)([\w\s]+?)([\s\S]+)' % keyword,
+        info = re.sub(r'(\s*)(%s\()([\r\n]*)([\w\s]+)([\s\S]+)' % keyword,
                       r'\1\2\3%s\4%s\5' % (colorama.Fore.GREEN,
                                            colorama.Fore.RESET), info)
         info = re.sub(r'(%s)(\()' % keyword,
                       r'%s\1%s\2' % (colorama.Fore.BLUE,
                                      colorama.Fore.RESET),
                       info, count=0)
-        return info
+        return info[:-1]
 
     def run_raw(self, code, raw_mode=True):
         """
