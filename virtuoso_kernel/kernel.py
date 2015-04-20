@@ -17,7 +17,7 @@ import time
 import os
 import zmq
 
-__version__ = '0.9'
+__version__ = '0.2'
 
 
 class VirtuosoKernel(Kernel):
