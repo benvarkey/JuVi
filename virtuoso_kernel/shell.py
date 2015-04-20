@@ -28,7 +28,7 @@ class VirtuosoExceptions(Exception):
 
 class VirtuosoShell(object):
     """
-    This class gives a python interface to the Virtuoso shell.j
+    This class gives a python interface to the Virtuoso shell.
     """
     _banner = None
     _version_re = None
@@ -92,8 +92,6 @@ class VirtuosoShell(object):
         """
         Spawn a virtuoso shell.
         """
-        # I could use 'setPrompts' for setting SKILL prompt, but,
-        # not relevant for Jupyter
         self._shell = pexpect.spawn('tcsh -c "virtuoso -nograph"',
                                     echo=False)
         self._shell.expect(r'> $', searchwindowsize=64)
@@ -163,6 +161,7 @@ class VirtuosoShell(object):
         info = re.sub(r'(\s*)(%s\()([\r\n]*)([\w\s]+)([\s\S]+)' % keyword,
                       r'\1\2\3%s\4%s\5' % (colorama.Fore.GREEN,
                                            colorama.Fore.RESET), info)
+        # Function name
         info = re.sub(r'(%s)(\()' % keyword,
                       r'%s\1%s\2' % (colorama.Fore.BLUE,
                                      colorama.Fore.RESET),
@@ -181,9 +180,7 @@ class VirtuosoShell(object):
     def run_cell(self, code):
         """
         Executes the 'code'
-
         """
-
         # The SKILL shell doesn't intimate the user that it is waiting for
         # a matching double-quote or a closing parenthesis.
         # Since pexpect, or for that matter the user, has no way to distinguish
@@ -286,9 +283,6 @@ class VirtuosoShell(object):
             return
 
         self._shell.sendline('println("__jupyter_kernel_ready__")')
-        # I need some delay to deal with tty idiosyncrasies:
-        # Ref: http://pexpect.readthedocs.org/en/latest/commonissues.html
-        # sleep(0.1)
         self._output = ''
         _exp_list = [pexpect.TIMEOUT]
         _exp_list.extend(self.prompt)
