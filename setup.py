@@ -1,5 +1,5 @@
-from distutils.core import setup
-from distutils.command.install import install
+from setuptools import setup
+from setuptools.command.install import install
 from distutils import log
 import json
 import os
@@ -33,7 +33,6 @@ class install_with_kernelspec(install):
 
 svem_flag = '--single-version-externally-managed'
 if svem_flag in sys.argv:
-    # Die, setuptools, die.
     sys.argv.remove(svem_flag)
 
 setup(name='virtuoso_kernel',
@@ -48,8 +47,8 @@ setup(name='virtuoso_kernel',
       install_requires=['pexpect>=3.3', 'colorama>=0.3.3'],
       classifiers = [
           'Framework :: IPython',
-          'License :: OSI Approved :: MIT License',
-          'Programming Language :: Python :: 2',
+          'License :: OSI Approved :: Apache Software License',
+          'Programming Language :: Python :: 2.7',
           'Topic :: System :: Shells',
       ]
 )
