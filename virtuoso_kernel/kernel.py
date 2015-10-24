@@ -3,9 +3,9 @@ Virtuoso kernel for Jupyter.
 
 Inspired by https://github.com/takluyver/bash_kernel
 """
-from IPython.kernel.zmq.kernelbase import Kernel
+from ipykernel.kernelbase import Kernel
 from IPython.display import HTML, Image
-from IPython.kernel import (
+from ipykernel import (
     get_connection_file, get_connection_info, connect_qtconsole
 )
 import signal
@@ -44,7 +44,7 @@ class VirtuosoKernel(Kernel):
                 'version': self.language_version,
                 'mimetype': 'text/x-skill',
                 'file_extension': '.il',
-                'pygments_lexer': 'scheme',
+                'pygments_lexer': 'skill',
                 'codemirror_mode': 'skill'}
 
     @property
