@@ -4,13 +4,14 @@ Python wrapper for Virtuoso shell.
 To be used in conjunction with IPython/Jupyter.
 """
 
+import zmq
 import re
-import signal
-import pexpect
-from pexpect import EOF
-from subprocess import check_output
-import subprocess
-from time import sleep
+#import signal
+#import pexpect
+#from pexpect import EOF
+#from subprocess import check_output
+#import subprocess
+#from time import sleep
 import colorama
 
 
@@ -26,6 +27,31 @@ class VirtuosoExceptions(Exception):
         return repr(self.value)
 
 
+class VirtuosoShellClient(object):
+    """
+    This is the client that talks to dfII's python server
+    """
+    def __init__(self, port=None):
+        super(VirtuosoShellClient, self).__init__()
+        self.port = port
+        if self.port is None:
+            #TODO: get port from config
+            self.port=66666
+        self.context = zmq.Context()
+        self.socket = self.context.socket(zmq.REQ)
+        self.socket.connect("tcp://localhost:%s" % self.port)
+
+    def write(self, payload):
+        #TODO: make sure the payload type is correct
+        self.socket.send_string(u"%s\n" % payload)
+
+    def read(self):
+        return self.socket.recv().decode()
+
+    def close(self):
+        #TODO: Finish this function
+        print("close() TBD")
+
 class VirtuosoShell(object):
     """
     This class gives a python interface to the Virtuoso shell.
@@ -40,10 +66,12 @@ class VirtuosoShell(object):
         """
         Virtuoso shell's banner
         """
-        if self._banner is None:
-            self._banner = check_output(['/bin/tcsh', '-c', 'virtuoso -V'],
-                                        stderr=subprocess.STDOUT)
-            self._banner = self._banner.decode('utf-8')
+        #TODO: Get actual response
+        #if self._banner is None:
+        #    self._banner = check_output(['/bin/tcsh', '-c', 'virtuoso -V'],
+        #                                stderr=subprocess.STDOUT)
+        #    self._banner = self._banner.decode('utf-8')
+        self._banner = "Fake Shell version 0.00\n"
         return self._banner
 
     @property
@@ -92,14 +120,17 @@ class VirtuosoShell(object):
         """
         Spawn a virtuoso shell.
         """
-        self._shell = pexpect.spawn('tcsh -c "virtuoso -nograph"',
-                                    echo=False)
-        self._shell.expect(r'> $', searchwindowsize=64)
-        self._output = self._shell.before
-        self._shell.sendline('setPrompts("<<pyvi>> " ' '"<%d<pyvi>> ")')
-        # sleep(0.5)
-        # self._shell.expect(r'<<pyvi>> ', searchwindowsize=64)
-        self._shell.expect_list(self.prompt, searchwindowsize=64)
+        #self._shell = pexpect.spawn('tcsh -c "virtuoso -nograph"',
+        #                            echo=False)
+        #self._shell.expect(r'> $', searchwindowsize=64)
+        #self._output = self._shell.before
+        #self._shell.sendline('setPrompts("<<pyvi>> " ' '"<%d<pyvi>> ")')
+        ## sleep(0.5)
+        ## self._shell.expect(r'<<pyvi>> ', searchwindowsize=64)
+        #self._shell.expect_list(self.prompt, searchwindowsize=64)
+
+        #TODO: pass the correct port
+        self._shell = VirtuosoShellClient()
 
     def _parse_output(self):
         """
@@ -174,7 +205,7 @@ class VirtuosoShell(object):
 
         No error checking is done.
         """
-        self._shell.sendline(code)
+        self._shell.write(code)
         self.wait_ready(raw_mode)
 
     def run_cell(self, code):
@@ -206,11 +237,16 @@ class VirtuosoShell(object):
                        _line.rstrip() != '']
         # I like having a prompt to group outputs :-P
         # except if there is only one line
-        if(len(_code_lines) > 1):
-            self._shell.sendline('')
+        #if(len(_code_lines) > 1):
+        #    self._shell.write('')
+        #for _line in _code_lines:
+        #    self._shell.write(_line)
+        #TODO: cleanup code
+        self._output = ''
         for _line in _code_lines:
-            self._shell.sendline(_line)
-        self.wait_ready()
+            self._shell.write(_line)
+            self._output += self._shell.read()
+            self._output += "\n"
 
         # Check the output and throw exception in case of error
         self._parse_output()
@@ -263,35 +299,40 @@ class VirtuosoShell(object):
         _cmd = 'help(%s)' % token
         self.run_raw(_cmd)
         _info = ''
-        if self._shell.before != 'nil':
-            _info = self._shell.before
+        #if self._shell.before != 'nil':
+        #    _info = self._shell.before
+        if self._output != 'nil':
+            _info = self._output
         return (self._pretty_introspection(_info, token))
 
     def interrupt(self):
         """
         Send an interrupt to the virtuoso shell
         """
-        self._shell.sendintr()
+        #self._shell.sendintr()
+        #TODO: finish this
+        pass
 
     def wait_ready(self, raw_mode=False):
         """
         Find the prompt after the shell output.
         """
-        if(raw_mode):
-            self._shell.expect_list(self.prompt, searchwindowsize=64)
-            self._output = self._shell.before
-            return
+        #if(raw_mode):
+        #    self._shell.expect_list(self.prompt, searchwindowsize=64)
+        #    self._output = self._shell.before
+        #    return
 
-        self._shell.sendline('println("__jupyter_kernel_ready__")')
-        self._output = ''
-        _exp_list = [pexpect.TIMEOUT]
-        _exp_list.extend(self.prompt)
-        self._shell.expect_list(_exp_list, searchwindowsize=64)
-        while(self._shell_available_re.search(self._shell.before) is None):
-            self._output += (self._shell.before + '\r\n')
-            sleep(0.1)
-            self._shell.expect_list(_exp_list, searchwindowsize=64)
-        self._output += self._shell_available_re.sub('', self._shell.before)
+        #self._shell.sendline('println("__jupyter_kernel_ready__")')
+        #self._output = ''
+        #_exp_list = [pexpect.TIMEOUT]
+        #_exp_list.extend(self.prompt)
+        #self._shell.expect_list(_exp_list, searchwindowsize=64)
+        #while(self._shell_available_re.search(self._shell.before) is None):
+        #    self._output += (self._shell.before + '\r\n')
+        #    sleep(0.1)
+        #    self._shell.expect_list(_exp_list, searchwindowsize=64)
+        #self._output += self._shell_available_re.sub('', self._shell.before)
+        self._output = self._shell.read()
 
     def shutdown(self, restart):
         """
@@ -308,20 +349,22 @@ class VirtuosoShell(object):
         """
         clear the buffer of the messages from the virtuoso shell
         """
-        while(self._shell.after != pexpect.TIMEOUT):
-            self._shell.expect_list([self.prompt[0],
-                                     self.prompt[1],
-                                     pexpect.TIMEOUT],
-                                    searchwindowsize=64, timeout=1)
-        self._shell.sendline('')
-        self._shell.expect_list([self.prompt[0],
-                                 self.prompt[1],
-                                 pexpect.TIMEOUT],
-                                searchwindowsize=64, timeout=1)
-        if(self._shell.after == pexpect.TIMEOUT):
-            # The shell is probably hung, interrupt
-            self._shell.sendcontrol('c')
-            self._shell.sendline('')
-            self._shell.expect_list(self.prompt, searchwindowsize=64,
-                                    timeout=5)
-        self._output = self._shell.before
+        #while(self._shell.after != pexpect.TIMEOUT):
+        #    self._shell.expect_list([self.prompt[0],
+        #                             self.prompt[1],
+        #                             pexpect.TIMEOUT],
+        #                            searchwindowsize=64, timeout=1)
+        #self._shell.write('')
+        #self._shell.expect_list([self.prompt[0],
+        #                         self.prompt[1],
+        #                         pexpect.TIMEOUT],
+        #                        searchwindowsize=64, timeout=1)
+        #if(self._shell.after == pexpect.TIMEOUT):
+        #    # The shell is probably hung, interrupt
+        #    self._shell.sendcontrol('c')
+        #    self._shell.write('')
+        #    self._shell.expect_list(self.prompt, searchwindowsize=64,
+        #                            timeout=5)
+        #self._output = self._shell.before
+        #TODO: Delete this function
+        print("flush() is no longer needed")
