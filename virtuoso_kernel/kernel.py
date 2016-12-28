@@ -70,14 +70,13 @@ class VirtuosoKernel(Kernel):
 
         # Start a new window to handle plots
         self._shell.run_raw("__win_id__ = awvCreatePlotWindow()")
-        self._shell.flush()
 
     def _handle_interrupt(self, signum, frame):
         """
         Interrupt handler for the kernel
         """
         self._shell.interrupt()
-        self._shell._shell.sendline("]")
+        #self._shell._shell.sendline("]")
         self._shell.wait_ready()
 
     def _start_virtuoso(self):
@@ -324,7 +323,6 @@ class VirtuosoKernel(Kernel):
                 return self._show_image_inline(_args.group(2))
 
         if(magic_code == 'flush'):
-            self._shell.flush()
             _content = ''
 
         if(_content is not None):
