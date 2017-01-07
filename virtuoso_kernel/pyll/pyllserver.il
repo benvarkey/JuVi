@@ -53,4 +53,4 @@ procedure(PyLLStartServer()
 );procedure
 
 __pyll_path__ = strcat("/" buildString(reverse(cdr(reverse(parseString(simplifyFilename(which(get_filename(piport))) "/")))) "/"))
-PyLLStartServer()
+;PyLLStartServer()
