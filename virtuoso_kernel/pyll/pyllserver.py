@@ -39,6 +39,8 @@ CONN_FILE = jupyter_data_dir() + "/runtime/" + "virtuoso-pyll.json"
 with open(CONN_FILE, "w") as COF:
     json.dump(['localhost', port], COF)
 exit_re = re.compile(r'{*exit\(\)}*')
+exit_payload = ('{"error": null,\n "warning": null,\n "info": "Exiting kernel",'
+                '\n "result": "t"}')
 
 while True:
     # Wait for client data
@@ -46,7 +48,7 @@ while True:
 
     # Exit server if requested by client
     if exit_re.search(message):
-        socket.send_string("Exiting kernel")
+        socket.send_string(exit_payload)
         # Delete the connection JSON file
         os.remove(CONN_FILE)
         exit(0)  # Normal exit

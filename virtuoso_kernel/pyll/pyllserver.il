@@ -47,7 +47,10 @@ procedure(PyLLServerTermHandler(ipcID exitStatus)
     )
 );procedure
 
-BDSkillServer=ipcBeginProcess("./pyllserver.py" "" 'PyLLServerListener nil
-                              'PyLLServerTermHandler)
+procedure(PyLLStartServer()
+    printf("PyLL Path = %s\n" __pyll_path__)
+    ipcBeginProcess(strcat("/" __pyll_path__ "/pyllserver.py") "" 'PyLLServerListener nil 'PyLLServerTermHandler)
+);procedure
 
-
+__pyll_path__ = buildString(reverse(cdr(reverse(parseString(simplifyFilename(which(get_filename(piport))) "/")))) "/")
+PyLLStartServer()
