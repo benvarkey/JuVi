@@ -298,7 +298,7 @@ class VirtuosoShell(object):
         if (_pay['info'] is None) or (_pay['result'] == "nil"):
             return ""
         else:
-            return (self._pretty_introspection(_info, token))
+            return (self._pretty_introspection(_pay['info'], token))
 
     def interrupt(self):
         """
