@@ -31,7 +31,7 @@ class VirtuosoShellClient(object):
         self.host = None
         self.context = None
         self.socket = None
-        self.init(port)
+        self.init()
 
     def init(self):
         # Get connection info from the PyLL JSON file
