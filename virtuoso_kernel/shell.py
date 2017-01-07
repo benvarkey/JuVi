@@ -293,13 +293,12 @@ class VirtuosoShell(object):
             token = re.match(r'(\S+?)\s*$', token).group(1)
         _cmd = 'help(%s)' % token
         self.run_raw(_cmd)
-        _info = json.loads(self._output)['info']
-        #_info = ''
-        ##if self._shell.before != 'nil':
-        ##    _info = self._shell.before
-        #if self._output != 'nil':
-        #    _info = self._output
-        return (self._pretty_introspection(_info, token))
+        _pay = json.loads(self._output)
+        # Handle cases where no help is available
+        if (_pay['info'] is None) or (_pay['result'] == "nil"):
+            return ""
+        else:
+            return (self._pretty_introspection(_info, token))
 
     def interrupt(self):
         """
