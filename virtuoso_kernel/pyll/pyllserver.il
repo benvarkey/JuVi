@@ -48,9 +48,9 @@ procedure(PyLLServerTermHandler(ipcID exitStatus)
 );procedure
 
 procedure(PyLLStartServer()
-    printf("PyLL Path = %s\n" __pyll_path__)
-    ipcBeginProcess(strcat("/" __pyll_path__ "/pyllserver.py") "" 'PyLLServerListener nil 'PyLLServerTermHandler)
+    printf("Starting PyLL Server from path '%s'\n" __pyll_path__)
+    ipcBeginProcess(strcat(__pyll_path__ "/pyllserver.py") "" 'PyLLServerListener nil 'PyLLServerTermHandler)
 );procedure
 
-__pyll_path__ = buildString(reverse(cdr(reverse(parseString(simplifyFilename(which(get_filename(piport))) "/")))) "/")
+__pyll_path__ = strcat("/" buildString(reverse(cdr(reverse(parseString(simplifyFilename(which(get_filename(piport))) "/")))) "/"))
 PyLLStartServer()
