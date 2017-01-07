@@ -5,7 +5,7 @@ To be used in conjunction with IPython/Jupyter.
 """
 import zmq
 import json
-from jupyter_core.paths import import jupyter_data_dir
+from jupyter_core.paths import jupyter_data_dir
 import re
 import colorama
 
