@@ -62,6 +62,7 @@ class VirtuosoKernel(Kernel):
         self._start_virtuoso()
         colorama.init()
         self._plot_re = re.compile(r'[^\w]?\w*?[pP]lot\w*\(')
+        self._exit_re = re.compile(r'^exit\W*')
         self._cell_magic_re = re.compile(r'^%+(\S+)')
         self._plt_width = 8.0
         self._plt_height = 5.0
@@ -135,6 +136,14 @@ class VirtuosoKernel(Kernel):
         # If there is a plot request, clear the plot window first.
         if(_plot_match is not None):
             self._shell.run_raw("clearAll()")
+
+        if self._exit_re.search(code) is not None:
+            execute_content = {'execution_count': self.execution_count,
+                               'data': {'text/plain': "Do '<ctrl>D' to exit"},
+                               'metadata': {}}
+            self.send_response(self.iopub_socket, 'execute_result',
+                               execute_content)
+            return {'status': 'abort', 'execution_count': self.execution_count}
 
         try:
             output = shell.run_cell(code)
