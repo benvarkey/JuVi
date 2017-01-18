@@ -146,7 +146,7 @@ class VirtuosoKernel(Kernel):
             return {'status': 'abort', 'execution_count': self.execution_count}
 
         try:
-            output = shell.run_cell(code)
+            output = shell.run_cell(code.rstrip())
         except (zmq.ZMQError, KeyboardInterrupt):
             self._handle_interrupt(signal.SIGINT, None)
             interrupted = True
