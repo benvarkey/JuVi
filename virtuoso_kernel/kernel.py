@@ -70,7 +70,7 @@ class VirtuosoKernel(Kernel):
         self._plt_file_name = None
 
         # Start a new window to handle plots
-        self._shell.run_raw("__win_id__ = awvCreatePlotWindow()")
+        #self._shell.run_raw("__win_id__ = awvCreatePlotWindow()")
 
     def _handle_interrupt(self, signum, frame):
         """
@@ -134,8 +134,8 @@ class VirtuosoKernel(Kernel):
         _plot_match = self._plot_re.search(code)
 
         # If there is a plot request, clear the plot window first.
-        if(_plot_match is not None):
-            self._shell.run_raw("clearAll()")
+        #if(_plot_match is not None):
+        #    self._shell.run_raw("clearAll()")
 
         if self._exit_re.search(code) is not None:
             execute_content = {'execution_count': self.execution_count,
@@ -158,30 +158,30 @@ class VirtuosoKernel(Kernel):
             exec_error = vexcp.value
             output = shell.output
 
-        if(_plot_match is not None):
-            # Ask the shell to save a hardcopy
-            self._plt_file_name = '/tmp/jupyter_virtuoso_%s.png' % \
-                                  str(time.time())
-            _plt_cmd = ('saveGraphImage(?window __win_id__ ?fileName "%s" '
-                        '?width %f ?height %f ?units "inch" '
-                        '?resolution %d ?resolutionUnits "pixels/in" '
-                        '?saveEachSubwindowSeparately nil)') %\
-                       (self._plt_file_name, self._plt_width, self._plt_height,
-                        self._plt_resolution)
-            self._shell.run_raw(_plt_cmd)
+        #if(_plot_match is not None):
+        #    # Ask the shell to save a hardcopy
+        #    self._plt_file_name = '/tmp/jupyter_virtuoso_%s.png' % \
+        #                          str(time.time())
+        #    _plt_cmd = ('saveGraphImage(?window __win_id__ ?fileName "%s" '
+        #                '?width %f ?height %f ?units "inch" '
+        #                '?resolution %d ?resolutionUnits "pixels/in" '
+        #                '?saveEachSubwindowSeparately nil)') %\
+        #               (self._plt_file_name, self._plt_width, self._plt_height,
+        #                self._plt_resolution)
+        #    self._shell.run_raw(_plt_cmd)
 
-            if(os.path.isfile(self._plt_file_name)):
-                # Display this image inline
-                _image = Image(filename=self._plt_file_name)
-                display_content = {'source': "kernel",
-                                   'data': {'image/png':
-                                            _image.data.encode('base64')},
-                                   'metadata': {}}
-                self.send_response(self.iopub_socket, 'display_data',
-                                   display_content)
+        #    if(os.path.isfile(self._plt_file_name)):
+        #        # Display this image inline
+        #        _image = Image(filename=self._plt_file_name)
+        #        display_content = {'source': "kernel",
+        #                           'data': {'image/png':
+        #                                    _image.data.encode('base64')},
+        #                           'metadata': {}}
+        #        self.send_response(self.iopub_socket, 'display_data',
+        #                           display_content)
 
-                # Delete the hardcopy
-                os.remove(self._plt_file_name)
+        #        # Delete the hardcopy
+        #        os.remove(self._plt_file_name)
 
         if interrupted:
             return {'status': 'abort', 'execution_count': self.execution_count}

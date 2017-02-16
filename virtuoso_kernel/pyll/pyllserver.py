@@ -1,3 +1,5 @@
+#!/opt/anaconda/bin/python
+#HACK: the above shebang will get rewritten with new install
 #!/usr/bin/env python
 from jupyter_core.paths import jupyter_data_dir
 import zmq
@@ -42,21 +44,9 @@ exit_re = re.compile(r'{*exit\(\)}*')
 exit_payload = ('{"error": null,\n "warning": null,\n "info": "Exiting kernel",'
                 '\n "result": "t"}')
 
-while True:
-    # Wait for client data
-    message = socket.recv().decode()
+__conn_active__ = False;
 
-    # Exit server if requested by client
-    if exit_re.search(message):
-        socket.send_string(exit_payload)
-        # Delete the connection JSON file
-        os.remove(CONN_FILE)
-        exit(0)  # Normal exit
-
-    # Send the command string to virtuoso
-    sys.stdout.write(message)
-    sys.stdout.flush()
-
+def __read_ciw__():
     # Read results from virtuoso and recreate the JSON payload
     _read = True
     _result = []
@@ -68,5 +58,34 @@ while True:
             _read = False
         else:
             _result.append(_line)
-    json_payload = "\n".join(_result)
+    return "\n".join(_result)
+
+while True:
+    # Wait for client data
+    message = socket.recv().decode()
+    if __conn_active__ is False:
+        sys.stdout.write('<PYLL_STATUS|printf("New client connected to the PyLLServer\n")|PYLL_STATUS>')
+        sys.stdout.flush()
+        __read_ciw__()
+        __conn_active__ = True
+
+
+    # Exit server if requested by client
+    if exit_re.search(message):
+        socket.send_string(exit_payload)
+        # Defer exit to an explicit 'PyLLStopServer()' SKILL procedure
+        # # Delete the connection JSON file
+        # os.remove(CONN_FILE)
+        # exit(0)  # Normal exit
+
+        sys.stdout.write('<PYLL_STATUS|printf("Client disconnected from the PyLLServer\n")|PYLL_STATUS>')
+        sys.stdout.flush()
+        __read_ciw__()
+        __conn_active__ = False
+        continue
+
+    # Send the command string to virtuoso
+    sys.stdout.write(message)
+    sys.stdout.flush()
+    json_payload = __read_ciw__()
     socket.send_string(json_payload)
